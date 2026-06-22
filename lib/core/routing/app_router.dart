@@ -10,6 +10,7 @@ import 'package:juzreviz/features/program/program_screen.dart';
 import 'package:juzreviz/features/program/session_screen.dart';
 import 'package:juzreviz/features/reader/reader_home.dart';
 import 'package:juzreviz/features/reader/reader_screen.dart';
+import 'package:juzreviz/features/settings/settings_pages.dart';
 import 'package:juzreviz/features/settings/settings_screen.dart';
 
 /// Reconstruit une [Selection] depuis les query params (deep links cold start).
@@ -46,6 +47,18 @@ GoRouter buildRouter() => GoRouter(
           ],
         ),
         GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
+        GoRoute(
+            path: '/profile/recitation',
+            builder: (_, _) => const RecitationPage()),
+        GoRoute(
+            path: '/profile/reading', builder: (_, _) => const ReadingPage()),
+        GoRoute(
+            path: '/profile/revision', builder: (_, _) => const RevisionPage()),
+        GoRoute(
+            path: '/profile/appearance',
+            builder: (_, _) => const AppearancePage()),
+        GoRoute(path: '/profile/data', builder: (_, _) => const DataPage()),
+        GoRoute(path: '/profile/about', builder: (_, _) => const AboutPage()),
         GoRoute(
           path: '/read',
           builder: (ctx, st) => ReaderScreen(

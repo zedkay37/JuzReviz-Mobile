@@ -4,6 +4,20 @@ Build : `flutter analyze` **0 issue** · `flutter test` **31/31 verts** · corpu
 (6236 versets / 77 429 mots / 114 sourates, idempotent) · tafsir embarqué
 (78 Mo → **8,2 Mo gzip**, lazy).
 
+## Refonte premium des réglages (#4)
+
+Parcours « Profil » repensé : fini la longue liste plate de dropdowns.
+- **Hub Profil** : en-tête stats (dégradé braise) + **cartes de catégories**
+  (Récitation, Lecture & affichage, Révision, Apparence, Données, À propos) avec
+  résumé en sous-titre → **sous-écrans focalisés** (drill-in, back natif).
+- **Contrôles intuitifs** (bibliothèque `setting_widgets.dart`) : pastilles de
+  choix (`ChoiceRow`) à la place des dropdowns, `SliderRow` avec valeur live,
+  `SwitchRow` titre+sous-titre, **swatches de thème** visuels, **cartes de profil**
+  Sérénité/Excellence descriptives, sélection récitateur avec coche, **heure de
+  rappel** (TimePicker). Haptique sur chaque choix.
+- Réglages avancés révélés contextuellement (mots du voile seulement si
+  « Premiers mots », heure de rappel seulement si rappels activés).
+
 ## Revue & refonte minimaliste (#3)
 
 - **Bug corrigé** : crash à l'annulation d'un dialog (playlists) — `TextEditingController`
