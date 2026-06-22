@@ -18,6 +18,7 @@ dependencies:
   path_provider: ^2.1.5
   just_audio: ^0.9.42
   http: ^1.2.2
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:

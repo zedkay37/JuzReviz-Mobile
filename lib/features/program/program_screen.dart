@@ -36,6 +36,7 @@ class ProgramScreen extends ConsumerWidget {
           return Column(
             children: [
               _Header(streak: streak, count: queue.length),
+              const _HotZones(),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
                 child: Row(
@@ -104,6 +105,43 @@ class ProgramScreen extends ConsumerWidget {
   void _start(BuildContext context, List<QueueEntry> queue, int n) {
     final keys = queue.take(n).map((e) => e.verseKey).toList();
     context.push('/session', extra: SelReview('Révision du jour', keys));
+  }
+}
+
+class _HotZones extends ConsumerWidget {
+  const _HotZones();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final zones = ref.watch(hotZonesProvider).valueOrNull ?? const [];
+    if (zones.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: Text('Zones chaudes',
+                  style: TextStyle(color: t.inkSoft, fontSize: 12)),
+            ),
+          ),
+          for (final z in zones)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ActionChip(
+                avatar: Icon(Icons.local_fire_department,
+                    size: 16, color: t.heat(z.heat.dominant)),
+                label: Text('${z.meta.transliteration} · ${z.heat.needsReview}'),
+                onPressed: () => context.push('/atlas/surah/${z.meta.number}'),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

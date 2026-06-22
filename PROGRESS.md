@@ -1,7 +1,24 @@
 # PROGRESS — JuzReviz Mobile
 
-Build : `flutter analyze` **0 issue** · `flutter test` **23/23 verts** · corpus généré
+Build : `flutter analyze` **0 issue** · `flutter test` **30/30 verts** · corpus généré
 (6236 versets / 77 429 mots / 114 sourates, idempotent).
+
+## Passe polish / optimisation (2e run)
+
+- **Moteur audio séquentiel** (Reader) : lecture enchaînée du passage, surlignage
+  du verset actif, **auto-scroll** calé sur `scrollTempo`/amplitude, `autoMaster`
+  (maîtrise en fin de dernière répétition), répétitions `off/ayah/range/progressive`
+  via `expandPlayback` (pur, **testé**). → couvre S16 / S18 (verset) / S20.
+- **Reprise réelle** : `scrollable_positioned_list` → scroll initial vers
+  `currentVerseKey` + persistance debouncée du premier verset visible. → S10.
+- **Perf** : `RepaintBoundary` par verset, `provider.select` (le Reader ne se
+  reconstruit plus sur la persistance de reprise ni sur des réglages non liés),
+  audio bar isolée en `ConsumerWidget`.
+- **A11y + reduce-motion** : `Semantics` par verset (clé + traduction),
+  `MediaQuery.disableAnimations` désactive les transitions du chrome. → S11/S65.
+- **Adaptatif** : largeur de colonne bornée (≤720) sur tablette/paysage. → S66.
+- **Zones chaudes** : bandeau top-5 sourates à revoir dans le Programme. → S38.
+- **Onboarding** : coachmark one-time (gestes clés), persistant via `coachmarkSeen`. → S61.
 
 ## Fait (chemin critique P0→P6 + bases P9)
 

@@ -22,6 +22,7 @@ class InterlinearVerse extends StatefulWidget {
     this.veilWords = 3,
     this.fontSize = 30,
     this.highlightedPosition,
+    this.active = false,
     this.onWordTap,
     this.onLongPress,
   });
@@ -36,6 +37,9 @@ class InterlinearVerse extends StatefulWidget {
   final int veilWords;
   final double fontSize;
   final int? highlightedPosition;
+
+  /// Verset en cours de lecture (surlignage doux + auto-scroll).
+  final bool active;
   final ValueChanged<int>? onWordTap;
   final VoidCallback? onLongPress;
 
@@ -69,30 +73,47 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     final veiled = widget.veilMode != VeilMode.full;
     final useColumns = widget.wordByWord || veiled;
 
-    return GestureDetector(
-      onLongPress: widget.onLongPress,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-            vertical: LanternSpace.md, horizontal: LanternSpace.sm),
-        child: Column(
-          children: [
-            if (useColumns)
-              _wordColumns(t)
-            else
-              _fullLine(t),
-            if (widget.showTranslation &&
-                widget.verse.translation(widget.translationLang).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: LanternSpace.sm),
-                child: Text(
-                  widget.verse.translation(widget.translationLang),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: t.inkSoft, fontSize: LanternType.uiBody, height: 1.4),
-                ),
+    final translation = widget.verse.translation(widget.translationLang);
+    return Semantics(
+      container: true,
+      label: 'Verset ${widget.verse.verseKey}'
+          '${translation.isNotEmpty ? '. $translation' : ''}',
+      child: GestureDetector(
+        onLongPress: widget.onLongPress,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: LanternMotion.fast,
+          margin: const EdgeInsets.symmetric(
+              vertical: LanternSpace.xs, horizontal: LanternSpace.xs),
+          padding: const EdgeInsets.symmetric(
+              vertical: LanternSpace.md, horizontal: LanternSpace.sm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(LanternSpace.radius),
+            color: widget.active ? t.accent.withValues(alpha: 0.06) : null,
+            border: Border(
+              right: BorderSide(
+                color: widget.active ? t.accent : Colors.transparent,
+                width: 3,
               ),
-          ],
+            ),
+          ),
+          child: Column(
+            children: [
+              if (useColumns) _wordColumns(t) else _fullLine(t),
+              if (widget.showTranslation && translation.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: LanternSpace.sm),
+                  child: Text(
+                    translation,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: t.inkSoft,
+                        fontSize: LanternType.uiBody,
+                        height: 1.4),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

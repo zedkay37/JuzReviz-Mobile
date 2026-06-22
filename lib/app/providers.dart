@@ -197,3 +197,11 @@ final streakProvider = FutureProvider<int>((ref) async {
   final now = ref.read(clockProvider).nowMs();
   return computeStreak(mastery.sessionDays, now);
 });
+
+/// Top sourates « qui s'éteignent » (stats zones chaudes, sans gamification).
+final hotZonesProvider = FutureProvider<List<SurahHeatTile>>((ref) async {
+  final tiles = await ref.watch(atlasHeatProvider.future);
+  final hot = tiles.where((t) => t.heat.needsReview > 0).toList()
+    ..sort((a, b) => b.heat.needsReview.compareTo(a.heat.needsReview));
+  return hot.take(5).toList(growable: false);
+});
