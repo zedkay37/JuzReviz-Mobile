@@ -1,0 +1,96 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:juzreviz/app/providers.dart';
+import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
+import 'package:juzreviz/core/designsystem/lantern_theme.dart';
+import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+
+class PlaylistsScreen extends ConsumerWidget {
+  const PlaylistsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final playlists = ref.watch(playlistsControllerProvider).valueOrNull ?? [];
+    return LanternScaffold(
+      appBar: AppBar(title: const Text('Playlists')),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: t.accent,
+        foregroundColor: t.background,
+        onPressed: () => _createDialog(context, ref),
+        child: const Icon(Icons.add),
+      ),
+      body: playlists.isEmpty
+          ? const LanternEmpty(
+              message: 'Aucune playlist. Compose tes passages favoris.',
+              icon: Icons.queue_music)
+          : ListView.separated(
+              padding: const EdgeInsets.all(LanternSpace.md),
+              itemCount: playlists.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final p = playlists[i];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: t.surface,
+                    borderRadius: BorderRadius.circular(LanternSpace.radius),
+                  ),
+                  child: ListTile(
+                    title: Text(p.name),
+                    subtitle: Text('${p.items.length} passage(s)'),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (v) {
+                        if (v == 'rename') _renameDialog(context, ref, p.id, p.name);
+                        if (v == 'delete') {
+                          ref.read(playlistsControllerProvider.notifier).delete(p.id);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'rename', child: Text('Renommer')),
+                        PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                      ],
+                    ),
+                    onTap: () => context.push('/playlists/${p.id}'),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Future<void> _createDialog(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final name = await _promptName(context, 'Nouvelle playlist', ctrl);
+    if (name != null && name.trim().isNotEmpty) {
+      await ref.read(playlistsControllerProvider.notifier).create(name.trim());
+    }
+  }
+
+  Future<void> _renameDialog(
+      BuildContext context, WidgetRef ref, String id, String current) async {
+    final ctrl = TextEditingController(text: current);
+    final name = await _promptName(context, 'Renommer', ctrl);
+    if (name != null && name.trim().isNotEmpty) {
+      await ref.read(playlistsControllerProvider.notifier).rename(id, name.trim());
+    }
+  }
+
+  Future<String?> _promptName(
+      BuildContext context, String title, TextEditingController ctrl) {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(controller: ctrl, autofocus: true),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+}
