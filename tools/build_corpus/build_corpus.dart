@@ -141,22 +141,74 @@ void main(List<String> args) {
     manifestFiles.add(_fileEntry(name, bytes));
   }
 
+  // Tafsir : minifié + gzip déterministe par sourate/langue (lazy à l'app).
+  final tafsirOut = Directory('$projectRoot/assets/tafsir');
+  if (tafsirOut.existsSync()) tafsirOut.deleteSync(recursive: true);
+  final tafsirFiles = <Map<String, Object>>[];
+  var tafsirRaw = 0;
+  var tafsirGz = 0;
+  for (final lang in const ['fr', 'en']) {
+    final srcDir = Directory('$sourceDir/public/tafsir/$lang');
+    if (!srcDir.existsSync()) continue;
+    Directory('${tafsirOut.path}/$lang').createSync(recursive: true);
+    for (final s in surahs) {
+      final src = File('${srcDir.path}/${s.number}.json');
+      if (!src.existsSync()) continue;
+      final map = (jsonDecode(src.readAsStringSync()) as Map)
+          .cast<String, dynamic>();
+      final minified = utf8.encode(jsonEncode(map));
+      final gz = _gzipDeterministic(minified);
+      final name = 'tafsir/$lang/${s.number}.json.gz';
+      File('${tafsirOut.path}/$lang/${s.number}.json.gz').writeAsBytesSync(gz);
+      tafsirRaw += minified.length;
+      tafsirGz += gz.length;
+      tafsirFiles.add({
+        'path': name,
+        'rawBytes': minified.length,
+        'gzBytes': gz.length,
+        'hash': _fnv1a(minified), // hash du contenu décompressé (idempotence)
+      });
+    }
+  }
+
   // manifest.json
   final manifest = <String, Object>{
-    'schema': 1,
-    'generatedFrom': 'JuzReviz2 (Tanzil uthmani + words wbw)',
-    'attribution': 'Texte: Tanzil.net (CC). Gloses/traductions: corpus desktop (CC BY-NC).',
+    'schema': 2,
+    'generatedFrom': 'JuzReviz2 (Tanzil uthmani + words wbw + tafsir)',
+    'attribution':
+        'Texte: Tanzil.net (CC). Gloses/traductions/tafsir: corpus desktop (CC BY-NC).',
     'surahCount': surahs.length,
     'verseCount': totalVerses,
     'wordCount': totalWords,
-    'files': manifestFiles,
+    'tafsir': {
+      'files': tafsirFiles.length,
+      'rawBytes': tafsirRaw,
+      'gzBytes': tafsirGz,
+    },
+    'files': [...manifestFiles, ...tafsirFiles],
   };
   _writeJson('${outDir.path}/manifest.json', manifest);
 
+  final mb = (tafsirGz / 1048576).toStringAsFixed(1);
+  final raw = (tafsirRaw / 1048576).toStringAsFixed(1);
   print('OK : ${surahs.length} sourates, $totalVerses versets, $totalWords mots.');
+  print('Tafsir : ${tafsirFiles.length} fichiers, $raw Mo -> $mb Mo gzip.');
   if (totalVerses != 6236) {
     stderr.writeln('ATTENTION : attendu 6236 versets, obtenu $totalVerses.');
   }
+}
+
+/// gzip déterministe : MTIME et OS du header forcés (idempotence cross-run).
+List<int> _gzipDeterministic(List<int> data) {
+  final out = gzip.encode(data);
+  if (out.length >= 10) {
+    out[4] = 0;
+    out[5] = 0;
+    out[6] = 0;
+    out[7] = 0; // MTIME = 0
+    out[9] = 0xFF; // OS = inconnu
+  }
+  return out;
 }
 
 // --- Parsing XML (regex, tags simples et bien formés) ---

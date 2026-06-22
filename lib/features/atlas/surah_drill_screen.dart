@@ -10,6 +10,7 @@ import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/selection.dart';
+import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
 
 class SurahDrillScreen extends ConsumerWidget {
   const SurahDrillScreen({super.key, required this.surah});
@@ -123,6 +124,10 @@ class SurahDrillScreen extends ConsumerWidget {
         onMastered: () {
           ref.read(masteryControllerProvider.notifier).markMastered(key);
           Navigator.of(ctx).pop();
+        },
+        onTafsir: () {
+          Navigator.of(ctx).pop();
+          showTafsir(context, ref, key);
         },
       ),
     );

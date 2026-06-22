@@ -72,6 +72,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _langTile('Langue de traduction', s.translationLang,
               (v) => up((p) => p.copyWith(translationLang: v))),
+          _langTile('Langue du tafsir', s.tafsirLanguage,
+              (v) => up((p) => p.copyWith(tafsirLanguage: v))),
           SwitchListTile(
             title: const Text('Chiffres latins'),
             value: s.latinAyahNumbers,

@@ -9,6 +9,7 @@ import 'package:juzreviz/data/playlists/playlist.dart';
 import 'package:juzreviz/data/playlists/playlists_repository.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/data/settings/settings_repository.dart';
+import 'package:juzreviz/data/tafsir/tafsir_repository.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
@@ -35,6 +36,15 @@ final audioControllerProvider = Provider<AudioController>((ref) {
   ref.onDispose(c.dispose);
   return c;
 });
+
+final tafsirRepositoryProvider =
+    Provider<TafsirRepository>((ref) => TafsirRepository());
+
+/// Tafsir d'un verset, par langue (lazy, décompressé+caché par le repo).
+final verseTafsirProvider =
+    FutureProvider.family<String, ({String lang, String verseKey})>(
+  (ref, a) => ref.read(tafsirRepositoryProvider).verseTafsir(a.lang, a.verseKey),
+);
 
 // --- Settings ---
 

@@ -31,3 +31,5 @@ flutter:
   assets:
     - assets/corpus/
     - assets/corpus/surah/
+    - assets/tafsir/fr/
+    - assets/tafsir/en/

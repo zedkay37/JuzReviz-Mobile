@@ -41,6 +41,14 @@ exige une config native non automatisable en une run. `AudioController`
 mot (audio-follow karaoké S18/S19) attend des données de segments non présentes
 dans le corpus desktop → surlignage au niveau verset seulement pour l'instant.
 
+## D7 — Tafsir embarqué gzip (au lieu de téléchargé)
+L'architecture envisageait un tafsir lazy *téléchargé* si trop lourd (78 Mo brut).
+Mesure : gzip ramène à **8,2 Mo** (≈9,5×). Décision : **embarquer** le tafsir
+compressé par sourate/langue (`assets/tafsir/{lang}/{n}.json.gz`), décompressé à
+la lecture (`gzip.decode`) avec cache. Avantage : tafsir **100 % offline** dès
+l'install, sans réseau ni gestion de téléchargement. Le gzip est rendu
+**déterministe** (MTIME=0, OS=0xFF) pour préserver l'idempotence du pipeline.
+
 ## D6 — Hors périmètre d'une run (documenté dans PROGRESS.md)
 Surfaces natives (widgets Glance/WidgetKit, Quick Tile, bulle), IAP, sync Pro,
 release stores, golden tests image, recettes appareil. Nécessitent appareils,

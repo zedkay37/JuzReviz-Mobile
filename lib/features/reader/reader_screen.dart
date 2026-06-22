@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/capture_bar.dart';
+import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
@@ -16,6 +17,7 @@ import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
+import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 typedef _ReaderConfig = ({
@@ -205,6 +207,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       );
     }));
     final versesAsync = ref.watch(readerVersesProvider(widget.selection));
+    final ambient = ref.watch(settingsControllerProvider
+        .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
     final focus = _focus || cfg.focus;
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
@@ -226,6 +230,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onTap: () => setState(() => _chromeVisible = !_chromeVisible),
         child: Stack(
           children: [
+            if (ambient)
+              Positioned.fill(child: LanternAmbient(animate: !reduceMotion)),
             SafeArea(
               child: versesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -342,6 +348,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onMastered: () {
           ref.read(masteryControllerProvider.notifier).markMastered(v.verseKey);
           Navigator.of(ctx).pop();
+        },
+        onTafsir: () {
+          Navigator.of(ctx).pop();
+          showTafsir(context, ref, v.verseKey);
         },
         onListen: () {
           Navigator.of(ctx).pop();

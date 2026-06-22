@@ -1,7 +1,20 @@
 # PROGRESS — JuzReviz Mobile
 
-Build : `flutter analyze` **0 issue** · `flutter test` **30/30 verts** · corpus généré
-(6236 versets / 77 429 mots / 114 sourates, idempotent).
+Build : `flutter analyze` **0 issue** · `flutter test` **31/31 verts** · corpus généré
+(6236 versets / 77 429 mots / 114 sourates, idempotent) · tafsir embarqué
+(78 Mo → **8,2 Mo gzip**, lazy).
+
+## Passe polish #2 — Tafsir (P7) + optimisation taille + décor
+
+- **Tafsir complet (S45–S47)** : pipeline → `assets/tafsir/{fr,en}/{n}.json.gz`
+  (gzip **déterministe**, MTIME/OS forcés → idempotent), `TafsirRepository`
+  (décompression + parse lazy, cache) **testé**, `TafsirPanel` (typo parchemin,
+  bascule FR/EN persistée, ouvre/ferme sans quitter la lecture), bouton **Tafsir**
+  de la `CaptureBar` câblé (Reader + Drill), réglage langue du tafsir.
+- **Optimisation taille** : 78,3 Mo de tafsir embarqués en **8,2 Mo** (≈9,5×),
+  100 % offline. Manifest étendu (schema 2, tailles raw/gz).
+- **Décor vivant (S63, opt-in)** : halo de braise `LanternAmbient` derrière le
+  Reader, animé, **statique si Reduce motion**, gated `ambientDecor`.
 
 ## Passe polish / optimisation (2e run)
 
