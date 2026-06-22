@@ -20,15 +20,7 @@ class ProgramScreen extends ConsumerWidget {
     final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
 
     return LanternScaffold(
-      appBar: AppBar(
-        title: const Text('Programme'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Programme du jour')),
       body: queueAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => LanternEmpty(message: 'Erreur : $e'),

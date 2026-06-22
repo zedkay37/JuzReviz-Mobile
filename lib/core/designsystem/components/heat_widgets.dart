@@ -50,8 +50,18 @@ class HeatTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('${meta.number}',
-                  style: TextStyle(color: t.inkSoft, fontSize: 12)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: t.surfaceHigh,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('${meta.number}',
+                    style: TextStyle(
+                        color: t.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ),
               const Spacer(),
               if (heat.hasFragile)
                 Container(

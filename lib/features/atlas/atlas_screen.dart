@@ -31,7 +31,16 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
         const <int>{};
 
     return LanternScaffold(
-      appBar: AppBar(title: const Text('Atlas')),
+      appBar: AppBar(
+        title: const Text('Atlas'),
+        actions: [
+          IconButton(
+            tooltip: 'Programme',
+            icon: const Icon(Icons.local_fire_department_outlined),
+            onPressed: () => context.push('/program'),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

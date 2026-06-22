@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
+import 'package:juzreviz/core/designsystem/components/prompt_dialog.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 
@@ -60,8 +61,8 @@ class PlaylistsScreen extends ConsumerWidget {
   }
 
   Future<void> _createDialog(BuildContext context, WidgetRef ref) async {
-    final ctrl = TextEditingController();
-    final name = await _promptName(context, 'Nouvelle playlist', ctrl);
+    final name = await promptText(context,
+        title: 'Nouvelle playlist', hint: 'Nom de la playlist');
     if (name != null && name.trim().isNotEmpty) {
       await ref.read(playlistsControllerProvider.notifier).create(name.trim());
     }
@@ -69,28 +70,9 @@ class PlaylistsScreen extends ConsumerWidget {
 
   Future<void> _renameDialog(
       BuildContext context, WidgetRef ref, String id, String current) async {
-    final ctrl = TextEditingController(text: current);
-    final name = await _promptName(context, 'Renommer', ctrl);
+    final name = await promptText(context, title: 'Renommer', initial: current);
     if (name != null && name.trim().isNotEmpty) {
       await ref.read(playlistsControllerProvider.notifier).rename(id, name.trim());
     }
-  }
-
-  Future<String?> _promptName(
-      BuildContext context, String title, TextEditingController ctrl) {
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(controller: ctrl, autofocus: true),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text),
-              child: const Text('OK')),
-        ],
-      ),
-    );
   }
 }

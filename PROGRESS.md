@@ -4,6 +4,19 @@ Build : `flutter analyze` **0 issue** · `flutter test` **31/31 verts** · corpu
 (6236 versets / 77 429 mots / 114 sourates, idempotent) · tafsir embarqué
 (78 Mo → **8,2 Mo gzip**, lazy).
 
+## Revue & refonte minimaliste (#3)
+
+- **Bug corrigé** : crash à l'annulation d'un dialog (playlists) — `TextEditingController`
+  non disposé (assertion `_dependents.isEmpty`). Nouveau `promptText` auto-disposé
+  + **test de non-régression** (création/annulation/OK).
+- **IA épurée** : bottom nav réduite à **Lire · Atlas · Playlists · Profil**.
+  **Programme** déplacé en **haut à droite** (Lire + Atlas) ; **Réglages factorisés
+  dans Profil** (en-tête stats : régularité, maîtrisés, mémorisées, à revoir +
+  accès Programme).
+- **Lire — changer de sourate** : le titre est un **sélecteur** (picker 114 avec
+  numéro + nom + recherche) ; reprise mise à jour. Titre lisible (nom de sourate).
+- **Atlas** : **numéro de sourate** mis en évidence (pastille accent) sur chaque tuile.
+
 ## Passe polish #2 — Tafsir (P7) + optimisation taille + décor
 
 - **Tafsir complet (S45–S47)** : pipeline → `assets/tafsir/{fr,en}/{n}.json.gz`

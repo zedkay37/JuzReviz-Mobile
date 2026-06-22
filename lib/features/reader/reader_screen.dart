@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/capture_bar.dart';
@@ -15,6 +16,7 @@ import 'package:juzreviz/data/audio/reciters.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
+import 'package:juzreviz/features/atlas/surah_picker.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
 import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
@@ -46,6 +48,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   bool _focus = false;
   bool _chromeVisible = true;
+
+  /// Sélection courante : override choisi via le picker, sinon celle du parent.
+  Selection? _override;
+  Selection get _selection => _override ?? widget.selection;
 
   List<Verse> _verses = const [];
   List<String> _plan = const [];
@@ -163,6 +169,39 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  String _readableTitle() {
+    final sel = _selection;
+    if (sel is SelSurah) {
+      final metas = ref.read(surahMetasProvider).valueOrNull;
+      final m = metas?.where((x) => x.number == sel.surah).firstOrNull;
+      final name = m?.transliteration ?? 'Sourate ${sel.surah}';
+      if (m != null && sel.from == 1 && sel.to == m.ayahCount) return name;
+      return '$name ${sel.from}–${sel.to}';
+    }
+    return sel.label;
+  }
+
+  Future<void> _changeSurah() async {
+    final number = await pickSurah(context);
+    if (number == null || !mounted) return;
+    final metas = ref.read(surahMetasProvider).valueOrNull;
+    final count =
+        metas?.where((m) => m.number == number).firstOrNull?.ayahCount ?? 1;
+    await ref.read(audioControllerProvider).stop();
+    if (!mounted) return;
+    ref
+        .read(settingsControllerProvider.notifier)
+        .edit((p) => p.copyWith(currentVerseKey: '$number:1'));
+    setState(() {
+      _override = SelSurah(number, 1, count);
+      _verses = const [];
+      _plan = const [];
+      _ptr = -1;
+      _playing = false;
+      _activeKey = null;
+    });
+  }
+
   Future<void> _togglePlay() async {
     final audio = ref.read(audioControllerProvider);
     if (_playing) {
@@ -206,7 +245,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         wordAudio: v.wordAudio,
       );
     }));
-    final versesAsync = ref.watch(readerVersesProvider(widget.selection));
+    final versesAsync = ref.watch(readerVersesProvider(_selection));
     final ambient = ref.watch(settingsControllerProvider
         .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
     final focus = _focus || cfg.focus;
@@ -217,8 +256,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       appBar: focus
           ? null
           : AppBar(
-              title: Text(widget.selection.label),
+              titleSpacing: 8,
+              title: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _changeSurah,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(_readableTitle(),
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      const Icon(Icons.expand_more, size: 20),
+                    ],
+                  ),
+                ),
+              ),
               actions: [
+                IconButton(
+                  tooltip: 'Programme',
+                  icon: const Icon(Icons.local_fire_department_outlined),
+                  onPressed: () => context.push('/program'),
+                ),
                 IconButton(
                   tooltip: 'Focus',
                   icon: const Icon(Icons.center_focus_strong),

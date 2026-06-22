@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
@@ -23,10 +24,11 @@ class SettingsScreen extends ConsumerWidget {
     void up(Settings Function(Settings) f) => ctrl.edit(f);
 
     return LanternScaffold(
-      appBar: AppBar(title: const Text('Réglages')),
+      appBar: AppBar(title: const Text('Profil')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: LanternSpace.sm),
+        padding: const EdgeInsets.only(bottom: LanternSpace.lg),
         children: [
+          const _ProfileHeader(),
           _section('Récitation'),
           ListTile(
             title: const Text('Récitateur'),
@@ -325,5 +327,75 @@ class SettingsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('JSON invalide.')));
     }
+  }
+}
+
+/// En-tête du Profil : régularité + état de mémorisation + accès Programme.
+class _ProfileHeader extends ConsumerWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final streak = ref.watch(streakProvider).valueOrNull ?? 0;
+    final mastery = ref.watch(masteryControllerProvider).valueOrNull;
+    final needsReview = ref.watch(decayQueueProvider).valueOrNull?.length ?? 0;
+    final memorized = mastery?.memorizedSurahs.length ?? 0;
+    final mastered = mastery?.mastered.length ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.all(LanternSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(LanternSpace.md),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(LanternSpace.radius),
+              border: Border.all(color: t.surfaceHigh),
+            ),
+            child: Row(
+              children: [
+                _Stat(value: '$streak', label: 'jours', icon: Icons.local_fire_department),
+                _Stat(value: '$mastered', label: 'maîtrisés', icon: Icons.spa),
+                _Stat(value: '$memorized', label: 'mémorisées', icon: Icons.bookmark),
+                _Stat(value: '$needsReview', label: 'à revoir', icon: Icons.timelapse),
+              ],
+            ),
+          ),
+          const SizedBox(height: LanternSpace.sm),
+          FilledButton.icon(
+            onPressed: () => context.push('/program'),
+            icon: const Icon(Icons.local_fire_department),
+            label: const Text('Programme du jour'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label, required this.icon});
+  final String value;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: t.accent, size: 20),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  color: t.ink, fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(label, style: TextStyle(color: t.inkSoft, fontSize: 11)),
+        ],
+      ),
+    );
   }
 }

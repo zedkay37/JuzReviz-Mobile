@@ -34,17 +34,18 @@ GoRouter buildRouter() => GoRouter(
               GoRoute(path: '/', builder: (_, _) => const ReaderHome()),
             ]),
             StatefulShellBranch(routes: [
-              GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
-            ]),
-            StatefulShellBranch(routes: [
               GoRoute(path: '/atlas', builder: (_, _) => const AtlasScreen()),
             ]),
             StatefulShellBranch(routes: [
               GoRoute(
                   path: '/playlists', builder: (_, _) => const PlaylistsScreen()),
             ]),
+            StatefulShellBranch(routes: [
+              GoRoute(path: '/profile', builder: (_, _) => const SettingsScreen()),
+            ]),
           ],
         ),
+        GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
         GoRoute(
           path: '/read',
           builder: (ctx, st) => ReaderScreen(
@@ -58,7 +59,6 @@ GoRouter buildRouter() => GoRouter(
             selection: st.extra as Selection? ?? const SelReview('', []),
           ),
         ),
-        GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
         GoRoute(
           path: '/atlas/surah/:n',
           builder: (ctx, st) =>
@@ -94,10 +94,6 @@ class _ShellScaffold extends StatelessWidget {
               selectedIcon: Icon(Icons.menu_book),
               label: 'Lire'),
           NavigationDestination(
-              icon: Icon(Icons.local_fire_department_outlined),
-              selectedIcon: Icon(Icons.local_fire_department),
-              label: 'Programme'),
-          NavigationDestination(
               icon: Icon(Icons.grid_view_outlined),
               selectedIcon: Icon(Icons.grid_view),
               label: 'Atlas'),
@@ -105,6 +101,10 @@ class _ShellScaffold extends StatelessWidget {
               icon: Icon(Icons.queue_music_outlined),
               selectedIcon: Icon(Icons.queue_music),
               label: 'Playlists'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profil'),
         ],
       ),
     );
