@@ -4,6 +4,39 @@ enum VeilMode { full, firstWords, hidden }
 
 enum ScrollTempo { ahead, sync, behind }
 
+/// Disposition du lecteur (façon « concurrent »).
+enum ReaderLayout { mushafTajweed, mushafMadni, flexible, verseByVerse }
+
+extension ReaderLayoutX on ReaderLayout {
+  String get id => name;
+
+  String get label => switch (this) {
+        ReaderLayout.mushafTajweed => 'Tajweed Madni Mushaf',
+        ReaderLayout.mushafMadni => 'Madni Mushaf',
+        ReaderLayout.flexible => 'Flexible',
+        ReaderLayout.verseByVerse => 'Verset par verset',
+      };
+
+  String get description => switch (this) {
+        ReaderLayout.mushafTajweed =>
+          'Règles de tajweed à code couleur pour une récitation correcte',
+        ReaderLayout.mushafMadni =>
+          'Mushaf Madni classique avec une disposition de page fixe',
+        ReaderLayout.flexible =>
+          'Taille de police personnalisable et mise en page flexible',
+        ReaderLayout.verseByVerse =>
+          'Chaque verset avec traduction et signification des mots',
+      };
+
+  /// Les dispositions mushaf nécessitent le pack de polices/pages (à venir).
+  bool get available =>
+      this == ReaderLayout.flexible || this == ReaderLayout.verseByVerse;
+}
+
+ReaderLayout readerLayoutFromString(String s) =>
+    ReaderLayout.values.firstWhere((v) => v.name == s,
+        orElse: () => ReaderLayout.flexible);
+
 enum AudioRepeatMode { off, ayah, range, progressive }
 
 T _enumFrom<T extends Enum>(List<T> values, Object? raw, T fallback) {
@@ -52,6 +85,8 @@ class Settings {
     this.reminderFrequency = 'daily',
     this.currentVerseKey = '1:1',
     this.coachmarkSeen = false,
+    this.readerLayout = 'flexible',
+    this.fontScale = 1.0,
   });
 
   factory Settings.fromJsonSanitized(Map<String, dynamic> j) {
@@ -98,6 +133,8 @@ class Settings {
       reminderFrequency: asS('reminderFrequency', def.reminderFrequency),
       currentVerseKey: asS('currentVerseKey', def.currentVerseKey),
       coachmarkSeen: asB('coachmarkSeen', def.coachmarkSeen),
+      readerLayout: asS('readerLayout', def.readerLayout),
+      fontScale: asD('fontScale', def.fontScale).clamp(0.7, 1.8),
     );
   }
 
@@ -134,6 +171,8 @@ class Settings {
   final String reminderFrequency;
   final String currentVerseKey;
   final bool coachmarkSeen;
+  final String readerLayout;
+  final double fontScale;
 
   Map<String, dynamic> toJson() => {
         'reciter': reciter,
@@ -169,6 +208,8 @@ class Settings {
         'reminderFrequency': reminderFrequency,
         'currentVerseKey': currentVerseKey,
         'coachmarkSeen': coachmarkSeen,
+        'readerLayout': readerLayout,
+        'fontScale': fontScale,
       };
 
   Settings copyWith({
@@ -205,6 +246,8 @@ class Settings {
     String? reminderFrequency,
     String? currentVerseKey,
     bool? coachmarkSeen,
+    String? readerLayout,
+    double? fontScale,
   }) =>
       Settings(
         reciter: reciter ?? this.reciter,
@@ -240,5 +283,7 @@ class Settings {
         reminderFrequency: reminderFrequency ?? this.reminderFrequency,
         currentVerseKey: currentVerseKey ?? this.currentVerseKey,
         coachmarkSeen: coachmarkSeen ?? this.coachmarkSeen,
+        readerLayout: readerLayout ?? this.readerLayout,
+        fontScale: fontScale ?? this.fontScale,
       );
 }

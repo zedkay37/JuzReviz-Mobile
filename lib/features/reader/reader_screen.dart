@@ -18,6 +18,7 @@ import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/atlas/surah_picker.dart';
+import 'package:juzreviz/features/reader/reader_layout_sheet.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -32,6 +33,7 @@ typedef _ReaderConfig = ({
   int veilWords,
   bool focus,
   bool wordAudio,
+  double fontSize,
 });
 
 class ReaderScreen extends ConsumerStatefulWidget {
@@ -70,9 +72,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   // Sélection de plage : clé du verset de départ (null = pas en sélection).
   // État éphémère, réinitialisé à la sortie du Reader (dispose).
   String? _rangeStart;
-
-  // Lecture pure (« caveman ») : arabe seul, plein écran, zéro distraction.
-  bool _pure = false;
 
   @override
   void initState() {
@@ -246,36 +245,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final t = context.lantern;
     final cfg = ref.watch(settingsControllerProvider.select((s) {
       final v = s.valueOrNull ?? const Settings();
+      // La disposition pilote l'affichage : « Verset par verset » = mot-à-mot +
+      // traduction ; « Flexible » = arabe seul, taille personnalisable.
+      final verse =
+          readerLayoutFromString(v.readerLayout) == ReaderLayout.verseByVerse;
       return (
-        wbw: v.readerWordByWord,
-        trans: v.readerTranslation,
+        wbw: verse,
+        trans: verse,
         glossLang: v.glossLang,
         transLang: v.translationLang,
         latin: v.latinAyahNumbers,
         veil: v.veilMode,
         veilWords: v.veilWords,
         focus: v.focusMode,
-        wordAudio: v.wordAudio,
+        wordAudio: verse && v.wordAudio,
+        fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
       );
     }));
     final versesAsync = ref.watch(readerVersesProvider(_selection));
     final ambient = ref.watch(settingsControllerProvider
         .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
-    final focus = _focus || cfg.focus || _pure;
-    // Mode pur : arabe seul (ni gloses, ni traduction, ni voile).
-    final effCfg = _pure
-        ? (
-            wbw: false,
-            trans: false,
-            glossLang: cfg.glossLang,
-            transLang: cfg.transLang,
-            latin: cfg.latin,
-            veil: VeilMode.full,
-            veilWords: cfg.veilWords,
-            focus: cfg.focus,
-            wordAudio: false,
-          )
-        : cfg;
+    final focus = _focus || cfg.focus;
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return LanternScaffold(
@@ -308,9 +298,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   onPressed: () => context.push('/program'),
                 ),
                 IconButton(
-                  tooltip: 'Lecture pure',
-                  icon: const Icon(Icons.chrome_reader_mode_outlined),
-                  onPressed: () => setState(() => _pure = true),
+                  tooltip: 'Disposition',
+                  icon: const Icon(Icons.view_day_outlined),
+                  onPressed: () => showReaderLayout(context),
                 ),
                 IconButton(
                   tooltip: 'Focus',
@@ -335,7 +325,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     return const LanternEmpty(message: 'Aucun verset.');
                   }
                   _resolveResume(verses);
-                  if (focus) return _buildList(verses, effCfg);
+                  if (focus) return _buildList(verses, cfg);
                   final selecting = _rangeStart != null;
                   return Column(
                     children: [
@@ -345,7 +335,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         const ReviewBanner(),
                         if (_resumeKey != null) _resumeChip(_resumeKey!),
                       ],
-                      Expanded(child: _buildList(verses, effCfg)),
+                      Expanded(child: _buildList(verses, cfg)),
                     ],
                   );
                 },
@@ -360,10 +350,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   duration: reduceMotion ? Duration.zero : LanternMotion.fast,
                   child: IconButton(
                     icon: Icon(Icons.fullscreen_exit, color: t.inkSoft),
-                    onPressed: () => setState(() {
-                      _focus = false;
-                      _pure = false;
-                    }),
+                    onPressed: () => setState(() => _focus = false),
                   ),
                 ),
               ),
@@ -462,6 +449,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     latinAyahNumbers: cfg.latin,
                     veilMode: cfg.veil,
                     veilWords: cfg.veilWords,
+                    fontSize: cfg.fontSize,
                     active: _activeKey == v.verseKey,
                     onWordTap: (cfg.wordAudio && !selecting)
                         ? (pos) => _playWord(v, pos)
