@@ -76,6 +76,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   // État éphémère, réinitialisé à la sortie du Reader (dispose).
   String? _rangeStart;
 
+  // Enchaînement auto : démarre la lecture dès que la sourate suivante est prête.
+  bool _autoPlayPending = false;
+
   @override
   void initState() {
     super.initState();
@@ -139,6 +142,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _playAt(next, settings);
       }
     } else {
+      // Fin de sourate → enchaîne sur la suivante (façon concurrent).
+      final surah = _currentSurah;
+      final atSurahEnd = _verses.isNotEmpty && finished == _verses.last.verseKey;
+      if (surah != null && surah < 114 && atSurahEnd) {
+        _goToSurah(surah + 1, autoPlay: true);
+        return;
+      }
       setState(() {
         _playing = false;
         _activeKey = null;
@@ -208,6 +218,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _changeSurah() async {
     final number = await pickSurah(context);
     if (number == null || !mounted) return;
+    await _goToSurah(number);
+  }
+
+  /// Change de sourate (picker, prev/next, enchaînement auto).
+  Future<void> _goToSurah(int number, {bool autoPlay = false}) async {
+    if (number < 1 || number > 114) return;
     final metas = ref.read(surahMetasProvider).valueOrNull;
     final count =
         metas?.where((m) => m.number == number).firstOrNull?.ayahCount ?? 1;
@@ -224,7 +240,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _ptr = -1;
       _playing = false;
       _activeKey = null;
+      _autoPlayPending = autoPlay;
     });
+  }
+
+  /// Sourate courante si la sélection est une sourate (sinon null).
+  int? get _currentSurah {
+    final sel = _selection;
+    return sel is SelSurah ? sel.surah : null;
   }
 
   Future<void> _togglePlay() async {
@@ -344,6 +367,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   if (verses.isEmpty) {
                     return const LanternEmpty(message: 'Aucun verset.');
                   }
+                  if (_autoPlayPending) {
+                    _autoPlayPending = false;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _startFrom(0);
+                    });
+                  }
                   if (useMushaf) {
                     return MushafView(
                       onVerseLongPress: (k) =>
@@ -393,6 +422,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   onPlayPause: _togglePlay,
                   onSpeed: _cycleSpeed,
                   onReciter: _pickReciter,
+                  onPrevSurah: (_currentSurah != null && _currentSurah! > 1)
+                      ? () => _goToSurah(_currentSurah! - 1, autoPlay: _playing)
+                      : null,
+                  onNextSurah: (_currentSurah != null && _currentSurah! < 114)
+                      ? () => _goToSurah(_currentSurah! + 1, autoPlay: _playing)
+                      : null,
                 ),
               ),
             ),
@@ -642,12 +677,16 @@ class _AudioBar extends ConsumerWidget {
     required this.onPlayPause,
     required this.onSpeed,
     required this.onReciter,
+    this.onPrevSurah,
+    this.onNextSurah,
   });
 
   final bool playing;
   final VoidCallback onPlayPause;
   final VoidCallback onSpeed;
   final VoidCallback onReciter;
+  final VoidCallback? onPrevSurah;
+  final VoidCallback? onNextSurah;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -672,10 +711,22 @@ class _AudioBar extends ConsumerWidget {
         child: Row(
           children: [
             IconButton(
+              tooltip: 'Sourate précédente',
+              icon: Icon(Icons.skip_previous,
+                  color: onPrevSurah == null ? t.inkFaint : t.inkSoft),
+              onPressed: onPrevSurah,
+            ),
+            IconButton(
               tooltip: playing ? 'Pause' : 'Lecture',
               icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
                   color: t.accent, size: 34),
               onPressed: onPlayPause,
+            ),
+            IconButton(
+              tooltip: 'Sourate suivante',
+              icon: Icon(Icons.skip_next,
+                  color: onNextSurah == null ? t.inkFaint : t.inkSoft),
+              onPressed: onNextSurah,
             ),
             TextButton(
               onPressed: onReciter,
