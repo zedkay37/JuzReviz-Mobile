@@ -18,6 +18,7 @@ import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/atlas/surah_picker.dart';
+import 'package:juzreviz/features/reader/mushaf_view.dart';
 import 'package:juzreviz/features/reader/reader_layout_sheet.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
@@ -266,6 +267,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final ambient = ref.watch(settingsControllerProvider
         .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
     final focus = _focus || cfg.focus;
+    final layout = ref.watch(settingsControllerProvider.select((s) =>
+        readerLayoutFromString((s.valueOrNull ?? const Settings()).readerLayout)));
+    final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
+    final useMushaf = mushafReady &&
+        (layout == ReaderLayout.mushafMadni ||
+            layout == ReaderLayout.mushafTajweed);
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return LanternScaffold(
@@ -323,6 +330,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   _verses = verses;
                   if (verses.isEmpty) {
                     return const LanternEmpty(message: 'Aucun verset.');
+                  }
+                  if (useMushaf) {
+                    return MushafView(
+                      onVerseLongPress: (k) =>
+                          showVerseActions(context, verseKey: k),
+                    );
                   }
                   _resolveResume(verses);
                   if (focus) return _buildList(verses, cfg);

@@ -6,6 +6,8 @@ import 'package:juzreviz/data/common/json_store.dart';
 import 'package:juzreviz/data/corpus/corpus_repository.dart';
 import 'package:juzreviz/data/mastery/mastery_repository.dart';
 import 'package:juzreviz/data/mastery/mastery_state.dart';
+import 'package:juzreviz/data/mushaf/mushaf_page.dart';
+import 'package:juzreviz/data/mushaf/mushaf_repository.dart';
 import 'package:juzreviz/data/playlists/playlist.dart';
 import 'package:juzreviz/data/playlists/playlists_repository.dart';
 import 'package:juzreviz/data/settings/settings.dart';
@@ -131,6 +133,22 @@ class DownloadsController extends Notifier<DownloadsState> {
 
 final tafsirRepositoryProvider =
     Provider<TafsirRepository>((ref) => TafsirRepository());
+
+// --- Moushaf (pages QPC, optionnel) ---
+
+final mushafRepositoryProvider =
+    Provider<MushafRepository>((ref) => MushafRepository());
+
+/// Le pack moushaf (pages + polices QCF) est-il embarqué ?
+final mushafAvailableProvider =
+    FutureProvider<bool>((ref) => ref.read(mushafRepositoryProvider).isAvailable());
+
+/// Lignes d'une page de moushaf (1-indexée).
+final mushafPageProvider = FutureProvider.family<List<MushafLine>, int>(
+    (ref, page) => ref.read(mushafRepositoryProvider).linesForPage(page));
+
+final mushafPageCountProvider =
+    FutureProvider<int>((ref) => ref.read(mushafRepositoryProvider).pageCount());
 
 /// Tafsir d'un verset, par langue (lazy, décompressé+caché par le repo).
 final verseTafsirProvider =

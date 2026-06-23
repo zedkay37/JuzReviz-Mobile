@@ -17,6 +17,8 @@ class ReaderLayoutSheet extends ConsumerWidget {
     final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final current = readerLayoutFromString(s.readerLayout);
     final ctrl = ref.read(settingsControllerProvider.notifier);
+    // Les dispositions mushaf ne sont actives que si le pack QCF est embarqué.
+    final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
 
     return SingleChildScrollView(
       child: Column(
@@ -28,26 +30,30 @@ class ReaderLayoutSheet extends ConsumerWidget {
                   color: t.ink, fontSize: 17, fontWeight: FontWeight.w500)),
           const SizedBox(height: LanternSpace.md),
           for (final layout in ReaderLayout.values)
-            Padding(
-              padding: const EdgeInsets.only(bottom: LanternSpace.sm),
-              child: _LayoutCard(
-                layout: layout,
-                selected: current == layout,
-                onTap: () {
-                  if (!layout.available) {
-                    HapticFeedback.lightImpact();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'Disposition Mushaf à venir (nécessite le pack de pages).'),
-                    ));
-                    return;
-                  }
-                  HapticFeedback.selectionClick();
-                  ctrl.edit((p) => p.copyWith(readerLayout: layout.id));
-                  Navigator.of(context).pop();
-                },
-              ),
-            ),
+            Builder(builder: (context) {
+              final enabled = layout.available || mushafReady;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: LanternSpace.sm),
+                child: _LayoutCard(
+                  layout: layout,
+                  enabled: enabled,
+                  selected: current == layout,
+                  onTap: () {
+                    if (!enabled) {
+                      HapticFeedback.lightImpact();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text(
+                            'Disposition Mushaf : installe le pack QCF (assets/mushaf).'),
+                      ));
+                      return;
+                    }
+                    HapticFeedback.selectionClick();
+                    ctrl.edit((p) => p.copyWith(readerLayout: layout.id));
+                    Navigator.of(context).pop();
+                  },
+                ),
+              );
+            }),
           const SizedBox(height: LanternSpace.sm),
           // Taille du texte arabe (Flexible / Verset par verset).
           Row(
@@ -76,10 +82,12 @@ class ReaderLayoutSheet extends ConsumerWidget {
 class _LayoutCard extends StatelessWidget {
   const _LayoutCard({
     required this.layout,
+    required this.enabled,
     required this.selected,
     required this.onTap,
   });
   final ReaderLayout layout;
+  final bool enabled;
   final bool selected;
   final VoidCallback onTap;
 
@@ -93,7 +101,7 @@ class _LayoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final dim = !layout.available;
+    final dim = !enabled;
     return GestureDetector(
       onTap: onTap,
       child: Container(
