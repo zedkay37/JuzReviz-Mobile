@@ -87,33 +87,27 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: LanternMotion.fast,
-          margin: const EdgeInsets.symmetric(
-              vertical: LanternSpace.xs, horizontal: LanternSpace.xs),
-          padding: const EdgeInsets.symmetric(
-              vertical: LanternSpace.md, horizontal: LanternSpace.sm),
+          margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(LanternSpace.radius),
-            color: widget.active ? t.accent.withValues(alpha: 0.06) : null,
-            border: Border(
-              right: BorderSide(
-                color: widget.active ? t.accent : Colors.transparent,
-                width: 3,
-              ),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            // Surlignage groupé doux (verset actif), sans filet lourd.
+            color: widget.active ? t.surfaceHigh : null,
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (useColumns) _wordColumns(t) else _fullLine(t),
               if (widget.showTranslation && translation.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: LanternSpace.sm),
+                  padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     translation,
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.start,
                     style: TextStyle(
-                        color: t.inkSoft,
-                        fontSize: LanternType.uiBody,
-                        height: 1.4),
+                        color: t.ink,
+                        fontSize: 16,
+                        height: 1.3),
                   ),
                 ),
             ],
@@ -139,13 +133,13 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
         textDirection: TextDirection.rtl,
         alignment: WrapAlignment.start,
         crossAxisAlignment: WrapCrossAlignment.start,
-        spacing: LanternSpace.md,
-        runSpacing: LanternSpace.md,
+        spacing: 12,
+        runSpacing: 6,
         children: [
           for (var i = 0; i < widget.verse.words.length; i++)
             _wordCell(t, widget.verse.words[i], visible: i < _visibleCount),
           Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.only(top: 2),
             child: AyahSeal(ayah: widget.verse.ayah, latin: widget.latinAyahNumbers),
           ),
         ],
@@ -190,7 +184,7 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
                 style: TextStyle(
                   fontFamily: t.arabicFamily,
                   fontSize: w.isWaqf ? widget.fontSize * 0.6 : widget.fontSize,
-                  height: 1.6,
+                  height: 1.25,
                   color: highlighted ? t.accent : t.ink,
                 ),
               ),
@@ -202,7 +196,8 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
               child: Text(
                 w.gloss(widget.glossLang),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: t.inkSoft, fontSize: LanternType.gloss),
+                style: TextStyle(
+                    color: t.inkSoft, fontSize: 12, height: 1.15),
               ),
             ),
         ],
