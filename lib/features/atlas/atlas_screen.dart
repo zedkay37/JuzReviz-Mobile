@@ -13,9 +13,6 @@ import 'package:juzreviz/domain/usecase/atlas_heat.dart';
 
 enum _RevFilter { all, meccan, medinan }
 
-/// Deux intentions distinctes : naviguer le Coran vs voir sa mémorisation.
-enum _AtlasMode { explore, progress }
-
 class AtlasScreen extends ConsumerStatefulWidget {
   const AtlasScreen({super.key});
 
@@ -24,12 +21,9 @@ class AtlasScreen extends ConsumerStatefulWidget {
 }
 
 class _AtlasScreenState extends ConsumerState<AtlasScreen> {
-  _AtlasMode _mode = _AtlasMode.explore;
   _RevFilter _rev = _RevFilter.all;
   bool _memorizedOnly = false;
   String _query = '';
-
-  bool get _progress => _mode == _AtlasMode.progress;
 
   @override
   Widget build(BuildContext context) {
@@ -43,24 +37,6 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
       body: Column(
         children: [
           const ReviewBanner(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
-            child: SegmentedButton<_AtlasMode>(
-              segments: const [
-                ButtonSegment(
-                    value: _AtlasMode.explore,
-                    label: Text('Explorer'),
-                    icon: Icon(Icons.travel_explore)),
-                ButtonSegment(
-                    value: _AtlasMode.progress,
-                    label: Text('Ma progression'),
-                    icon: Icon(Icons.local_fire_department)),
-              ],
-              selected: {_mode},
-              onSelectionChanged: (s) => setState(() => _mode = s.first),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: LanternSpace.md, vertical: LanternSpace.sm),
@@ -83,17 +59,18 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
                     () => setState(() => _rev = _RevFilter.meccan)),
                 _chip('Médinoises', _rev == _RevFilter.medinan,
                     () => setState(() => _rev = _RevFilter.medinan)),
-                if (_progress) ...[
-                  const SizedBox(width: 12),
-                  _chip('Mémorisées', _memorizedOnly,
-                      () => setState(() => _memorizedOnly = !_memorizedOnly)),
-                ],
+                const SizedBox(width: 12),
+                _chip('Mémorisées', _memorizedOnly,
+                    () => setState(() => _memorizedOnly = !_memorizedOnly)),
               ],
             ),
           ),
-          if (_progress) const _HeatLegend(),
+          const _HeatLegend(),
           Expanded(
             child: tilesAsync.when(
+              // Anti-flicker : garde la grille pendant les recomputations.
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
               data: (tiles) => _grid(_filter(tiles, memorized)),
@@ -114,9 +91,7 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
       if (_rev == _RevFilter.medinan && m.revelation != Revelation.medinan) {
         return false;
       }
-      if (_progress && _memorizedOnly && !memorized.contains(m.number)) {
-        return false;
-      }
+      if (_memorizedOnly && !memorized.contains(m.number)) return false;
       if (q.isEmpty) return true;
       return foldSearch(m.transliteration).contains(q) ||
           foldSearch(m.englishName).contains(q) ||
@@ -143,7 +118,6 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
           meta: tile.meta,
           heat: tile.heat,
           scarred: tile.scarred,
-          showHeat: _progress,
           heroTag: 'surah-${tile.meta.number}',
           onTap: () => context.push('/atlas/surah/${tile.meta.number}'),
         );
@@ -163,7 +137,7 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
   }
 }
 
-/// Légende de la heatmap (mode progression) — rend les états distinguables.
+/// Légende de la heatmap — rend les états distinguables.
 class _HeatLegend extends StatelessWidget {
   const _HeatLegend();
 
