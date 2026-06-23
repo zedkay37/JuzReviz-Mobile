@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:juzreviz/data/audio/audio_cache.dart';
 
 final _mp3 = [0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00]; // "ID3"...
@@ -31,12 +31,12 @@ void main() {
         onProgress: (d, t) => lastDone = d);
     expect(ok, isTrue);
     expect(lastDone, 2);
-    expect(await repo.isSurahDownloaded('ar.alafasy', keys), isTrue);
+    expect(await repo.areVersesDownloaded('ar.alafasy', keys), isTrue);
     expect(await repo.cachedFile('ar.alafasy', '1:1'), isNotNull);
     expect(await repo.surahBytes('ar.alafasy', 1), greaterThan(0));
 
     await repo.deleteSurah('ar.alafasy', 1);
-    expect(await repo.isSurahDownloaded('ar.alafasy', keys), isFalse);
+    expect(await repo.areVersesDownloaded('ar.alafasy', keys), isFalse);
     expect(await repo.cachedFile('ar.alafasy', '1:1'), isNull);
   });
 

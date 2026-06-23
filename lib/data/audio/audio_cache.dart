@@ -47,7 +47,8 @@ class AudioCacheRepository {
     return f.existsSync() && f.lengthSync() > 0 ? f : null;
   }
 
-  Future<bool> isSurahDownloaded(
+  /// Vrai si tous les versets de la liste sont en cache (sourate, juz, Coran…).
+  Future<bool> areVersesDownloaded(
       String reciterId, List<String> verseKeys) async {
     if (verseKeys.isEmpty) return false;
     for (final k in verseKeys) {
@@ -55,6 +56,14 @@ class AudioCacheRepository {
       if (!f.existsSync() || f.lengthSync() == 0) return false;
     }
     return true;
+  }
+
+  /// Supprime un ensemble de versets (utile pour un juz à cheval sur sourates).
+  Future<void> deleteVerses(String reciterId, List<String> verseKeys) async {
+    for (final k in verseKeys) {
+      final f = File(await _versePath(reciterId, k));
+      if (f.existsSync()) f.deleteSync();
+    }
   }
 
   Future<int> surahBytes(String reciterId, int surah) async {

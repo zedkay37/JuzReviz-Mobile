@@ -16,6 +16,7 @@ import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
 import 'package:juzreviz/domain/usecase/atlas_heat.dart';
 import 'package:juzreviz/domain/usecase/decay_queue.dart';
+import 'package:juzreviz/domain/usecase/juz_index.dart';
 import 'package:juzreviz/domain/usecase/streak.dart';
 
 // --- Infrastructure ---
@@ -45,7 +46,7 @@ final audioControllerProvider = Provider<AudioController>((ref) {
   return c;
 });
 
-// --- Téléchargements audio offline ---
+// --- Téléchargements audio offline (sourate / juz / Coran) ---
 
 /// État/octets d'une sourate pour un récitateur (cache offline).
 final surahDownloadStatusProvider = FutureProvider.family<
@@ -54,15 +55,33 @@ final surahDownloadStatusProvider = FutureProvider.family<
   final meta = metas.firstWhere((m) => m.number == a.surah);
   final keys = surahVerseKeys(a.surah, meta.ayahCount);
   final repo = ref.read(audioCacheRepositoryProvider);
-  final done = await repo.isSurahDownloaded(a.reciter, keys);
+  final done = await repo.areVersesDownloaded(a.reciter, keys);
   final bytes = await repo.surahBytes(a.reciter, a.surah);
   return (done: done, bytes: bytes);
+});
+
+/// Un juz est-il intégralement en cache pour ce récitateur ?
+final juzDownloadStatusProvider =
+    FutureProvider.family<bool, ({String reciter, int juz})>((ref, a) async {
+  final metas = await ref.watch(surahMetasProvider.future);
+  final keys = juzVerseKeys(a.juz, metas);
+  return ref.read(audioCacheRepositoryProvider).areVersesDownloaded(a.reciter, keys);
+});
+
+/// Le Coran entier est-il en cache pour ce récitateur ?
+final quranDownloadStatusProvider =
+    FutureProvider.family<bool, String>((ref, reciter) async {
+  final metas = await ref.watch(surahMetasProvider.future);
+  return ref
+      .read(audioCacheRepositoryProvider)
+      .areVersesDownloaded(reciter, quranVerseKeys(metas));
 });
 
 final totalCacheBytesProvider = FutureProvider<int>(
     (ref) => ref.read(audioCacheRepositoryProvider).totalBytes());
 
-typedef DownloadsState = ({int? active, Map<int, double> progress});
+/// État de téléchargement courant : un seul groupe actif à la fois.
+typedef DownloadsState = ({String? active, double progress});
 
 final downloadsControllerProvider =
     NotifierProvider<DownloadsController, DownloadsState>(
@@ -72,38 +91,41 @@ class DownloadsController extends Notifier<DownloadsState> {
   bool _cancel = false;
 
   @override
-  DownloadsState build() => (active: null, progress: const {});
+  DownloadsState build() => (active: null, progress: 0);
 
-  Future<void> download(String reciterId, int surah, int ayahCount) async {
+  void _invalidateAll() {
+    ref.invalidate(surahDownloadStatusProvider);
+    ref.invalidate(juzDownloadStatusProvider);
+    ref.invalidate(quranDownloadStatusProvider);
+    ref.invalidate(totalCacheBytesProvider);
+  }
+
+  /// Télécharge un groupe identifié ([id] : `s2`, `j5`, `quran`…).
+  Future<void> download(String reciterId, String id, List<String> keys) async {
     if (state.active != null) return; // une à la fois
     _cancel = false;
-    state = (active: surah, progress: {surah: 0});
-    final repo = ref.read(audioCacheRepositoryProvider);
-    final keys = surahVerseKeys(surah, ayahCount);
-    await repo.downloadSurah(
-      reciterId,
-      keys,
-      onProgress: (d, t) =>
-          state = (active: surah, progress: {surah: t == 0 ? 0 : d / t}),
-      cancelled: () => _cancel,
-    );
-    state = (active: null, progress: const {});
-    ref.invalidate(surahDownloadStatusProvider);
-    ref.invalidate(totalCacheBytesProvider);
+    state = (active: id, progress: 0);
+    await ref.read(audioCacheRepositoryProvider).downloadSurah(
+          reciterId,
+          keys,
+          onProgress: (d, t) =>
+              state = (active: id, progress: t == 0 ? 0 : d / t),
+          cancelled: () => _cancel,
+        );
+    state = (active: null, progress: 0);
+    _invalidateAll();
   }
 
   void cancel() => _cancel = true;
 
-  Future<void> delete(String reciterId, int surah) async {
-    await ref.read(audioCacheRepositoryProvider).deleteSurah(reciterId, surah);
-    ref.invalidate(surahDownloadStatusProvider);
-    ref.invalidate(totalCacheBytesProvider);
+  Future<void> deleteKeys(String reciterId, List<String> keys) async {
+    await ref.read(audioCacheRepositoryProvider).deleteVerses(reciterId, keys);
+    _invalidateAll();
   }
 
   Future<void> clearAll() async {
     await ref.read(audioCacheRepositoryProvider).clearAll();
-    ref.invalidate(surahDownloadStatusProvider);
-    ref.invalidate(totalCacheBytesProvider);
+    _invalidateAll();
   }
 }
 

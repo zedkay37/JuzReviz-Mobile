@@ -4,9 +4,11 @@ import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+import 'package:juzreviz/data/audio/audio_cache.dart';
 import 'package:juzreviz/data/audio/reciters.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
+import 'package:juzreviz/domain/usecase/juz_index.dart';
 import 'package:juzreviz/features/settings/setting_widgets.dart';
 
 String formatBytes(int b) {
@@ -15,7 +17,9 @@ String formatBytes(int b) {
   return '${(b / (1024 * 1024)).toStringAsFixed(1)} Mo';
 }
 
-/// Gestionnaire de téléchargement audio (récitation offline).
+enum _Scope { surah, juz }
+
+/// Gestionnaire de téléchargement audio (récitation offline) : sourate / juz / Coran.
 class DownloadsPage extends ConsumerStatefulWidget {
   const DownloadsPage({super.key});
 
@@ -25,6 +29,7 @@ class DownloadsPage extends ConsumerStatefulWidget {
 
 class _DownloadsPageState extends ConsumerState<DownloadsPage> {
   String? _reciter;
+  _Scope _scope = _Scope.surah;
 
   @override
   Widget build(BuildContext context) {
@@ -65,14 +70,40 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
               ],
             ),
           ),
-          Expanded(
-            child: metasAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
-              data: (metas) => ListView.builder(
-                itemCount: metas.length,
-                itemBuilder: (_, i) =>
-                    _SurahRow(reciter: reciter, meta: metas[i]),
+          metasAsync.when(
+            loading: () => const Expanded(
+                child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => Expanded(child: LanternEmpty(message: 'Erreur : $e')),
+            data: (metas) => Expanded(
+              child: Column(
+                children: [
+                  _QuranTile(reciter: reciter, metas: metas),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        LanternSpace.md, 0, LanternSpace.md, LanternSpace.sm),
+                    child: SegmentedButton<_Scope>(
+                      segments: const [
+                        ButtonSegment(value: _Scope.surah, label: Text('Par sourate')),
+                        ButtonSegment(value: _Scope.juz, label: Text('Par juz')),
+                      ],
+                      selected: {_scope},
+                      onSelectionChanged: (s) => setState(() => _scope = s.first),
+                    ),
+                  ),
+                  Expanded(
+                    child: _scope == _Scope.surah
+                        ? ListView.builder(
+                            itemCount: metas.length,
+                            itemBuilder: (_, i) =>
+                                _SurahRow(reciter: reciter, meta: metas[i]),
+                          )
+                        : ListView.builder(
+                            itemCount: 30,
+                            itemBuilder: (_, i) => _JuzRow(
+                                reciter: reciter, juz: i + 1, metas: metas),
+                          ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -82,27 +113,33 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
   }
 }
 
-class _SurahRow extends ConsumerWidget {
-  const _SurahRow({required this.reciter, required this.meta});
-  final String reciter;
-  final SurahMeta meta;
+/// Rangée d'action de téléchargement réutilisable.
+class _DownloadTrailing extends StatelessWidget {
+  const _DownloadTrailing({
+    required this.active,
+    required this.progress,
+    required this.done,
+    required this.busy,
+    required this.onDownload,
+    required this.onCancel,
+    required this.onDelete,
+    this.sizeLabel,
+  });
+
+  final bool active;
+  final double progress;
+  final bool done;
+  final bool busy; // un autre téléchargement est en cours
+  final VoidCallback onDownload;
+  final VoidCallback onCancel;
+  final VoidCallback onDelete;
+  final String? sizeLabel;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.lantern;
-    final downloads = ref.watch(downloadsControllerProvider);
-    final status = ref
-        .watch(surahDownloadStatusProvider((reciter: reciter, surah: meta.number)))
-        .valueOrNull;
-    final active = downloads.active == meta.number;
-    final progress = downloads.progress[meta.number] ?? 0;
-    final done = status?.done ?? false;
-    final bytes = status?.bytes ?? 0;
-    final ctrl = ref.read(downloadsControllerProvider.notifier);
-
-    Widget trailing;
     if (active) {
-      trailing = Row(
+      return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
@@ -116,32 +153,121 @@ class _SurahRow extends ConsumerWidget {
           const SizedBox(width: 4),
           Text('${(progress * 100).round()}%',
               style: TextStyle(color: t.inkSoft, fontSize: 12)),
-          IconButton(
-            icon: Icon(Icons.close, color: t.inkSoft),
-            onPressed: ctrl.cancel,
-          ),
+          IconButton(icon: Icon(Icons.close, color: t.inkSoft), onPressed: onCancel),
         ],
-      );
-    } else if (done) {
-      trailing = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(formatBytes(bytes),
-              style: TextStyle(color: t.inkSoft, fontSize: 12)),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: t.inkSoft),
-            onPressed: () => ctrl.delete(reciter, meta.number),
-          ),
-        ],
-      );
-    } else {
-      trailing = IconButton(
-        icon: Icon(Icons.download_outlined, color: t.accent),
-        onPressed: downloads.active != null
-            ? null
-            : () => ctrl.download(reciter, meta.number, meta.ayahCount),
       );
     }
+    if (done) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (sizeLabel != null)
+            Text(sizeLabel!, style: TextStyle(color: t.inkSoft, fontSize: 12)),
+          IconButton(
+              icon: Icon(Icons.delete_outline, color: t.inkSoft),
+              onPressed: onDelete),
+        ],
+      );
+    }
+    return IconButton(
+      icon: Icon(Icons.download_outlined, color: busy ? t.inkFaint : t.accent),
+      onPressed: busy ? null : onDownload,
+    );
+  }
+}
+
+class _QuranTile extends ConsumerWidget {
+  const _QuranTile({required this.reciter, required this.metas});
+  final String reciter;
+  final List<SurahMeta> metas;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final dl = ref.watch(downloadsControllerProvider);
+    final done = ref.watch(quranDownloadStatusProvider(reciter)).valueOrNull ?? false;
+    final ctrl = ref.read(downloadsControllerProvider.notifier);
+    final keys = quranVerseKeys(metas);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.sm, LanternSpace.md, LanternSpace.sm),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        border: Border.all(color: t.border),
+      ),
+      child: ListTile(
+        leading: Icon(Icons.menu_book, color: t.accent),
+        title: Text('Tout le Coran', style: TextStyle(color: t.ink)),
+        subtitle: Text('${keys.length} versets',
+            style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        trailing: _DownloadTrailing(
+          active: dl.active == 'quran',
+          progress: dl.progress,
+          done: done,
+          busy: dl.active != null && dl.active != 'quran',
+          onDownload: () => ctrl.download(reciter, 'quran', keys),
+          onCancel: ctrl.cancel,
+          onDelete: () => ctrl.deleteKeys(reciter, keys),
+        ),
+      ),
+    );
+  }
+}
+
+class _JuzRow extends ConsumerWidget {
+  const _JuzRow({required this.reciter, required this.juz, required this.metas});
+  final String reciter;
+  final int juz;
+  final List<SurahMeta> metas;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final dl = ref.watch(downloadsControllerProvider);
+    final done = ref
+            .watch(juzDownloadStatusProvider((reciter: reciter, juz: juz)))
+            .valueOrNull ??
+        false;
+    final ctrl = ref.read(downloadsControllerProvider.notifier);
+    final keys = juzVerseKeys(juz, metas);
+    final id = 'j$juz';
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: t.surfaceHigh,
+        child: Text('$juz', style: TextStyle(color: t.accent, fontSize: 13)),
+      ),
+      title: Text('Juz $juz', style: TextStyle(color: t.ink)),
+      subtitle: Text('${keys.length} versets',
+          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+      trailing: _DownloadTrailing(
+        active: dl.active == id,
+        progress: dl.progress,
+        done: done,
+        busy: dl.active != null && dl.active != id,
+        onDownload: () => ctrl.download(reciter, id, keys),
+        onCancel: ctrl.cancel,
+        onDelete: () => ctrl.deleteKeys(reciter, keys),
+      ),
+    );
+  }
+}
+
+class _SurahRow extends ConsumerWidget {
+  const _SurahRow({required this.reciter, required this.meta});
+  final String reciter;
+  final SurahMeta meta;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final dl = ref.watch(downloadsControllerProvider);
+    final status = ref
+        .watch(surahDownloadStatusProvider((reciter: reciter, surah: meta.number)))
+        .valueOrNull;
+    final ctrl = ref.read(downloadsControllerProvider.notifier);
+    final keys = surahVerseKeys(meta.number, meta.ayahCount);
+    final id = 's${meta.number}';
 
     return ListTile(
       leading: CircleAvatar(
@@ -152,7 +278,16 @@ class _SurahRow extends ConsumerWidget {
       title: Text(meta.transliteration, style: TextStyle(color: t.ink)),
       subtitle: Text('${meta.ayahCount} versets',
           style: TextStyle(color: t.inkSoft, fontSize: 12)),
-      trailing: trailing,
+      trailing: _DownloadTrailing(
+        active: dl.active == id,
+        progress: dl.progress,
+        done: status?.done ?? false,
+        busy: dl.active != null && dl.active != id,
+        sizeLabel: (status?.bytes ?? 0) > 0 ? formatBytes(status!.bytes) : null,
+        onDownload: () => ctrl.download(reciter, id, keys),
+        onCancel: ctrl.cancel,
+        onDelete: () => ctrl.deleteKeys(reciter, keys),
+      ),
     );
   }
 }
