@@ -53,6 +53,24 @@ void main() {
     expect(lists.single.items.single.selection, const SelSurah(18, 1, 10));
   });
 
+  test('createWithSelections crée une playlist multi-passages', () async {
+    final c = _container();
+    addTearDown(c.dispose);
+    final ctrl = c.read(playlistsControllerProvider.notifier);
+    await c.read(playlistsControllerProvider.future);
+
+    await ctrl.createWithSelections('Révision', const [
+      SelSurah(90, 1, 20),
+      SelSurah(112, 1, 4),
+      SelJuz(30),
+    ]);
+    final pl = c.read(playlistsControllerProvider).value!.single;
+    expect(pl.name, 'Révision');
+    expect(pl.items.length, 3);
+    expect(pl.items.first.selection, const SelSurah(90, 1, 20));
+    expect(pl.items.last.selection, const SelJuz(30));
+  });
+
   test('toggleScar pose puis retire la cicatrice', () async {
     final c = _container();
     addTearDown(c.dispose);

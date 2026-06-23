@@ -295,6 +295,16 @@ class PlaylistsController extends AsyncNotifier<List<Playlist>> {
     await _persist([..._s, Playlist(id: _id(), name: name, items: [item])]);
   }
 
+  /// Crée une playlist à partir d'une sélection multiple (composeur).
+  Future<void> createWithSelections(
+      String name, List<Selection> selections) async {
+    final items = [
+      for (final s in selections)
+        PlaylistItem(id: _id(), selection: s, label: s.label),
+    ];
+    await _persist([..._s, Playlist(id: _id(), name: name, items: items)]);
+  }
+
   Future<void> removeItem(String playlistId, String itemId) => _persist([
         for (final p in _s)
           if (p.id == playlistId)

@@ -20,6 +20,7 @@ import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/atlas/surah_picker.dart';
 import 'package:juzreviz/features/reader/mushaf_view.dart';
 import 'package:juzreviz/features/reader/reader_layout_sheet.dart';
+import 'package:juzreviz/features/reader/reader_playback_sheet.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -64,6 +65,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   StreamSubscription<ProcessingState>? _procSub;
   Timer? _resumeDebounce;
+  Timer? _pauseTimer; // temporisation après chaque âyah
 
   // Reprise surfacée : puce « Reprendre » (auto-dismiss), tap → recale.
   String? _resumeKey;
@@ -90,6 +92,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _procSub?.cancel();
     _resumeDebounce?.cancel();
     _resumeChipTimer?.cancel();
+    _pauseTimer?.cancel();
     ref.read(audioControllerProvider).stop();
     super.dispose();
   }
@@ -126,7 +129,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
     final next = _ptr + 1;
     if (next < _plan.length) {
-      _playAt(next, settings);
+      final pause = settings.repeatPauseMs;
+      if (pause > 0) {
+        _pauseTimer?.cancel();
+        _pauseTimer = Timer(Duration(milliseconds: pause), () {
+          if (mounted && _playing) _playAt(next, settings);
+        });
+      } else {
+        _playAt(next, settings);
+      }
     } else {
       setState(() {
         _playing = false;
@@ -200,6 +211,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final metas = ref.read(surahMetasProvider).valueOrNull;
     final count =
         metas?.where((m) => m.number == number).firstOrNull?.ayahCount ?? 1;
+    _pauseTimer?.cancel();
     await ref.read(audioControllerProvider).stop();
     if (!mounted) return;
     ref
@@ -218,6 +230,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _togglePlay() async {
     final audio = ref.read(audioControllerProvider);
     if (_playing) {
+      _pauseTimer?.cancel();
       await audio.pause();
       if (mounted) setState(() => _playing = false);
       return;
@@ -673,6 +686,11 @@ class _AudioBar extends ConsumerWidget {
             TextButton(
               onPressed: onSpeed,
               child: Text('$rate×', style: TextStyle(color: t.inkSoft)),
+            ),
+            IconButton(
+              tooltip: 'Paramètres de lecture',
+              icon: Icon(Icons.tune, color: t.inkSoft),
+              onPressed: () => showPlaybackParams(context),
             ),
           ],
         ),

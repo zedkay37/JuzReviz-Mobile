@@ -4,6 +4,7 @@ import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/features/atlas/atlas_screen.dart';
 import 'package:juzreviz/features/atlas/surah_drill_screen.dart';
+import 'package:juzreviz/features/playlists/compose_screen.dart';
 import 'package:juzreviz/features/playlists/playlist_detail_screen.dart';
 import 'package:juzreviz/features/playlists/playlists_screen.dart';
 import 'package:juzreviz/features/program/program_screen.dart';
@@ -48,6 +49,7 @@ GoRouter buildRouter() => GoRouter(
           ],
         ),
         GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
+        GoRoute(path: '/compose', builder: (_, _) => const ComposeScreen()),
         GoRoute(
             path: '/profile/recitation',
             builder: (_, _) => const RecitationPage()),

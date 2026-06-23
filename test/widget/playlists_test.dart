@@ -15,7 +15,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.playlist_add));
     await tester.pumpAndSettle();
     expect(find.text('Nouvelle playlist'), findsOneWidget);
 
@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.playlist_add));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Hifz du matin');
     await tester.tap(find.text('OK'));
