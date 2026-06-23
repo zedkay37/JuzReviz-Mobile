@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:juzreviz/core/common/clock.dart';
+import 'package:juzreviz/data/audio/audio_cache.dart';
 import 'package:juzreviz/data/audio/audio_controller.dart';
 import 'package:juzreviz/data/common/json_store.dart';
 import 'package:juzreviz/data/corpus/corpus_repository.dart';
@@ -31,11 +32,80 @@ final masteryRepositoryProvider = Provider<MasteryRepository>(
 final playlistsRepositoryProvider = Provider<PlaylistsRepository>(
     (ref) => PlaylistsRepository(ref.read(jsonStoreProvider)));
 
+final audioCacheRepositoryProvider =
+    Provider<AudioCacheRepository>((ref) => AudioCacheRepository());
+
 final audioControllerProvider = Provider<AudioController>((ref) {
-  final c = AudioController();
+  final cache = ref.read(audioCacheRepositoryProvider);
+  final c = AudioController(
+    resolver: (reciterId, verseKey) async =>
+        (await cache.cachedFile(reciterId, verseKey))?.path,
+  );
   ref.onDispose(c.dispose);
   return c;
 });
+
+// --- Téléchargements audio offline ---
+
+/// État/octets d'une sourate pour un récitateur (cache offline).
+final surahDownloadStatusProvider = FutureProvider.family<
+    ({bool done, int bytes}), ({String reciter, int surah})>((ref, a) async {
+  final metas = await ref.watch(surahMetasProvider.future);
+  final meta = metas.firstWhere((m) => m.number == a.surah);
+  final keys = surahVerseKeys(a.surah, meta.ayahCount);
+  final repo = ref.read(audioCacheRepositoryProvider);
+  final done = await repo.isSurahDownloaded(a.reciter, keys);
+  final bytes = await repo.surahBytes(a.reciter, a.surah);
+  return (done: done, bytes: bytes);
+});
+
+final totalCacheBytesProvider = FutureProvider<int>(
+    (ref) => ref.read(audioCacheRepositoryProvider).totalBytes());
+
+typedef DownloadsState = ({int? active, Map<int, double> progress});
+
+final downloadsControllerProvider =
+    NotifierProvider<DownloadsController, DownloadsState>(
+        DownloadsController.new);
+
+class DownloadsController extends Notifier<DownloadsState> {
+  bool _cancel = false;
+
+  @override
+  DownloadsState build() => (active: null, progress: const {});
+
+  Future<void> download(String reciterId, int surah, int ayahCount) async {
+    if (state.active != null) return; // une à la fois
+    _cancel = false;
+    state = (active: surah, progress: {surah: 0});
+    final repo = ref.read(audioCacheRepositoryProvider);
+    final keys = surahVerseKeys(surah, ayahCount);
+    await repo.downloadSurah(
+      reciterId,
+      keys,
+      onProgress: (d, t) =>
+          state = (active: surah, progress: {surah: t == 0 ? 0 : d / t}),
+      cancelled: () => _cancel,
+    );
+    state = (active: null, progress: const {});
+    ref.invalidate(surahDownloadStatusProvider);
+    ref.invalidate(totalCacheBytesProvider);
+  }
+
+  void cancel() => _cancel = true;
+
+  Future<void> delete(String reciterId, int surah) async {
+    await ref.read(audioCacheRepositoryProvider).deleteSurah(reciterId, surah);
+    ref.invalidate(surahDownloadStatusProvider);
+    ref.invalidate(totalCacheBytesProvider);
+  }
+
+  Future<void> clearAll() async {
+    await ref.read(audioCacheRepositoryProvider).clearAll();
+    ref.invalidate(surahDownloadStatusProvider);
+    ref.invalidate(totalCacheBytesProvider);
+  }
+}
 
 final tafsirRepositoryProvider =
     Provider<TafsirRepository>((ref) => TafsirRepository());

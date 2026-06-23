@@ -10,6 +10,7 @@ import 'package:juzreviz/features/program/program_screen.dart';
 import 'package:juzreviz/features/program/session_screen.dart';
 import 'package:juzreviz/features/reader/reader_home.dart';
 import 'package:juzreviz/features/reader/reader_screen.dart';
+import 'package:juzreviz/features/settings/downloads_page.dart';
 import 'package:juzreviz/features/settings/settings_pages.dart';
 import 'package:juzreviz/features/settings/settings_screen.dart';
 
@@ -58,6 +59,9 @@ GoRouter buildRouter() => GoRouter(
             path: '/profile/appearance',
             builder: (_, _) => const AppearancePage()),
         GoRoute(path: '/profile/data', builder: (_, _) => const DataPage()),
+        GoRoute(
+            path: '/profile/downloads',
+            builder: (_, _) => const DownloadsPage()),
         GoRoute(path: '/profile/about', builder: (_, _) => const AboutPage()),
         GoRoute(
           path: '/read',

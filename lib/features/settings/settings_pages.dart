@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
@@ -347,6 +348,18 @@ class DataPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(top: LanternSpace.md),
         children: [
+          SettingGroup(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.download_for_offline_outlined),
+                title: const Text('Téléchargements'),
+                subtitle: const Text('Récitation hors-ligne par sourate'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/profile/downloads'),
+              ),
+            ],
+          ),
+          const SizedBox(height: LanternSpace.md),
           SettingGroup(
             children: [
               ListTile(

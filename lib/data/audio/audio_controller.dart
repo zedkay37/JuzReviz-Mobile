@@ -2,11 +2,19 @@ import 'package:just_audio/just_audio.dart';
 import 'package:juzreviz/data/audio/audio_allowlist.dart';
 import 'package:juzreviz/data/audio/reciters.dart';
 
-/// Contrôleur audio (just_audio) : lecture d'un verset depuis une source
-/// validée par l'allowlist. Émet la clé du verset courant.
+/// Résout un chemin local pour un verset s'il est en cache (offline-first).
+typedef AudioLocalResolver = Future<String?> Function(
+    String reciterId, String verseKey);
+
+/// Contrôleur audio (just_audio) : lecture d'un verset depuis le cache local
+/// si disponible, sinon une source validée par l'allowlist. Émet la clé courante.
 class AudioController {
-  AudioController({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+  AudioController({AudioPlayer? player, this.resolver})
+      : _player = player ?? AudioPlayer();
   final AudioPlayer _player;
+
+  /// Résolveur de cache offline (injecté par le provider).
+  final AudioLocalResolver? resolver;
 
   String? _currentVerseKey;
   String? get currentVerseKey => _currentVerseKey;
@@ -19,14 +27,20 @@ class AudioController {
   Future<void> setRate(double rate) =>
       _player.setSpeed(rate.clamp(0.5, 2.0));
 
-  /// Joue un verset. Renvoie `false` si l'URL n'est pas autorisée.
+  /// Joue un verset : cache local d'abord, sinon streaming (URL allowlistée).
+  /// Renvoie `false` si l'URL n'est pas autorisée ou la source indisponible.
   Future<bool> playVerse(String reciterId, String verseKey,
       {double rate = 1.0}) async {
+    final local = await resolver?.call(reciterId, verseKey);
     final url = verseAudioUrl(reciterId, verseKey);
-    if (!isAllowedAudioUrl(url)) return false;
+    if (local == null && !isAllowedAudioUrl(url)) return false;
     _currentVerseKey = verseKey;
     try {
-      await _player.setUrl(url);
+      if (local != null) {
+        await _player.setFilePath(local);
+      } else {
+        await _player.setUrl(url);
+      }
       await _player.setSpeed(rate.clamp(0.5, 2.0));
       await _player.play();
       return true;
