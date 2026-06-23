@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
+import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/settings/settings.dart';
@@ -60,6 +61,8 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 child: SingleChildScrollView(
                   child: InterlinearVerse(
                     verse: v,
+                    onLongPress: () =>
+                        showVerseActions(context, verseKey: v.verseKey),
                     wordByWord: settings.readerWordByWord,
                     showTranslation: settings.readerTranslation,
                     glossLang: settings.glossLang,

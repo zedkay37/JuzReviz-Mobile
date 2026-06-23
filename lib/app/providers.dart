@@ -103,6 +103,13 @@ class MasteryController extends AsyncNotifier<MasteryState> {
     return _persist(_s.copyWith(fragile: fragile, mastered: mastered));
   }
 
+  /// Cicatrice manuelle (toggle) : pose/retire le badge permanent.
+  Future<void> toggleScar(String key) {
+    final scarred = {..._s.scarred};
+    scarred.contains(key) ? scarred.remove(key) : scarred.add(key);
+    return _persist(_s.copyWith(scarred: scarred));
+  }
+
   Future<void> toggleMemorized(int surah) {
     final set = {..._s.memorizedSurahs};
     set.contains(surah) ? set.remove(surah) : set.add(surah);
@@ -153,6 +160,31 @@ class PlaylistsController extends AsyncNotifier<List<Playlist>> {
     ]);
   }
 
+  /// Ajoute le passage s'il est absent, le retire s'il est présent (idempotent).
+  Future<void> togglePassage(String playlistId, Selection selection) {
+    return _persist([
+      for (final p in _s)
+        if (p.id == playlistId)
+          p.copyWith(
+            items: p.items.any((i) => i.selection == selection)
+                ? [for (final i in p.items) if (i.selection != selection) i]
+                : [
+                    ...p.items,
+                    PlaylistItem(
+                        id: _id(), selection: selection, label: selection.label),
+                  ],
+          )
+        else
+          p,
+    ]);
+  }
+
+  /// Crée une playlist et y ajoute le passage en un seul geste.
+  Future<void> createWithPassage(String name, Selection selection) async {
+    final item = PlaylistItem(id: _id(), selection: selection, label: selection.label);
+    await _persist([..._s, Playlist(id: _id(), name: name, items: [item])]);
+  }
+
   Future<void> removeItem(String playlistId, String itemId) => _persist([
         for (final p in _s)
           if (p.id == playlistId)
@@ -179,6 +211,18 @@ class PlaylistsController extends AsyncNotifier<List<Playlist>> {
     return list;
   }
 }
+
+/// Sélection d'un passage à partir d'une clé `"s:a"` (+ fin `"s:b"` éventuelle).
+Selection passageSelection(String verseKey, [String? rangeEnd]) {
+  final p = verseKey.split(':');
+  final surah = int.parse(p[0]);
+  final from = int.parse(p[1]);
+  final to = rangeEnd != null ? int.parse(rangeEnd.split(':')[1]) : from;
+  return SelSurah(surah, from, to);
+}
+
+bool playlistHasPassage(Playlist p, Selection selection) =>
+    p.items.any((i) => i.selection == selection);
 
 // --- Dérivés (lecture seule, recomposés réactivement) ---
 

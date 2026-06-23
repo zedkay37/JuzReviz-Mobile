@@ -1,0 +1,267 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:juzreviz/app/providers.dart';
+import 'package:juzreviz/core/designsystem/components/add_to_playlist_sheet.dart';
+import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
+import 'package:juzreviz/core/designsystem/lantern_theme.dart';
+import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+import 'package:juzreviz/domain/mastery/mastery.dart';
+import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
+
+/// Menu d'actions verset unifié (appui long), identique sur toutes les surfaces.
+/// Représente une plage si [rangeEnd] est fourni.
+class VerseActionSheet extends ConsumerWidget {
+  const VerseActionSheet({
+    super.key,
+    required this.verseKey,
+    this.rangeEnd,
+    this.arabicPreview,
+    this.reference,
+    this.onPlayFrom,
+    this.onRepeat,
+    this.onSelectRange,
+  });
+
+  final String verseKey;
+  final String? rangeEnd; // null = verset unique
+  final String? arabicPreview;
+  final String? reference;
+  final VoidCallback? onPlayFrom;
+  final VoidCallback? onRepeat;
+  final VoidCallback? onSelectRange;
+
+  bool get _isRange => rangeEnd != null;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final mastery = ref.watch(masteryControllerProvider).valueOrNull;
+    final manualScar = mastery?.scarred.contains(verseKey) ?? false;
+    final derivedScar = mastery == null
+        ? false
+        : verseFlag(mastery.fragile[verseKey], mastery.mastered[verseKey])
+            .scarred;
+    final scarred = manualScar || derivedScar;
+
+    void close() => Navigator.of(context).pop();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // En-tête : aperçu + référence.
+        if (arabicPreview != null)
+          Text(
+            arabicPreview!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+                color: t.ink, fontSize: 20, fontFamily: t.arabicFamily),
+          ),
+        Text(
+          reference ?? (_isRange ? '$verseKey – $rangeEnd' : verseKey),
+          style: TextStyle(color: t.inkSoft, fontSize: 12),
+        ),
+        const SizedBox(height: LanternSpace.sm),
+
+        if (onSelectRange != null && !_isRange)
+          _ActionRow(
+            icon: Icons.expand,
+            label: 'Sélectionner jusqu’à…',
+            accent: true,
+            onTap: () {
+              close();
+              onSelectRange!();
+            },
+          ),
+
+        _SectionLabel('Mémorisation'),
+        _ActionRow(
+          icon: Icons.bolt,
+          label: _isRange ? 'Marquer la plage fragile' : 'Marquer fragile',
+          color: t.fragile,
+          onTap: () {
+            _forEachKey((k) =>
+                ref.read(masteryControllerProvider.notifier).markFragile(k));
+            HapticFeedback.mediumImpact();
+            close();
+          },
+        ),
+        _ActionRow(
+          icon: Icons.spa,
+          label: _isRange ? 'Marquer la plage maîtrisée' : 'Marquer maîtrisé',
+          color: t.fresh,
+          onTap: () {
+            _forEachKey((k) =>
+                ref.read(masteryControllerProvider.notifier).markMastered(k));
+            HapticFeedback.lightImpact();
+            close();
+          },
+        ),
+        if (!_isRange)
+          _ActionRow(
+            icon: scarred ? Icons.healing : Icons.healing_outlined,
+            label: 'Cicatrice',
+            color: t.scar,
+            trailing: scarred
+                ? Icon(Icons.check, color: t.accent, size: 18)
+                : null,
+            onTap: () {
+              ref.read(masteryControllerProvider.notifier).toggleScar(verseKey);
+              HapticFeedback.selectionClick();
+              close();
+            },
+          ),
+
+        _SectionLabel('Organiser'),
+        _ActionRow(
+          icon: Icons.playlist_add,
+          label: 'Ajouter à une playlist…',
+          onTap: () {
+            close();
+            showAddToPlaylist(
+                context, passageSelection(verseKey, rangeEnd));
+          },
+        ),
+        if (!_isRange)
+          _ActionRow(
+            icon: Icons.menu_book,
+            label: 'Lire le tafsir',
+            onTap: () {
+              close();
+              showTafsir(context, ref, verseKey);
+            },
+          ),
+
+        if (onPlayFrom != null || onRepeat != null) ...[
+          _SectionLabel('Écouter'),
+          if (onPlayFrom != null)
+            _ActionRow(
+              icon: Icons.play_arrow,
+              label: 'Lire à partir d’ici',
+              onTap: () {
+                close();
+                onPlayFrom!();
+              },
+            ),
+          if (onRepeat != null)
+            _ActionRow(
+              icon: Icons.repeat,
+              label: _isRange ? 'Répéter la plage' : 'Répéter ce passage',
+              onTap: () {
+                close();
+                onRepeat!();
+              },
+            ),
+        ],
+      ],
+    );
+  }
+
+  void _forEachKey(void Function(String) action) {
+    if (!_isRange) {
+      action(verseKey);
+      return;
+    }
+    final surah = int.parse(verseKey.split(':')[0]);
+    final from = int.parse(verseKey.split(':')[1]);
+    final to = int.parse(rangeEnd!.split(':')[1]);
+    for (var a = from; a <= to; a++) {
+      action('$surah:$a');
+    }
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, LanternSpace.md, 0, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+            color: t.inkFaint,
+            fontSize: 11,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+    this.trailing,
+    this.accent = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+  final Widget? trailing;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    final fg = accent ? t.accent : t.ink;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, color: color ?? (accent ? t.accent : t.inkSoft), size: 22),
+            const SizedBox(width: LanternSpace.md),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      color: fg,
+                      fontSize: 15,
+                      fontWeight: accent ? FontWeight.w500 : FontWeight.w400)),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ouvre le menu d'actions verset unifié.
+Future<void> showVerseActions(
+  BuildContext context, {
+  required String verseKey,
+  String? rangeEnd,
+  String? arabicPreview,
+  String? reference,
+  VoidCallback? onPlayFrom,
+  VoidCallback? onRepeat,
+  VoidCallback? onSelectRange,
+}) {
+  return showLanternSheet<void>(
+    context,
+    builder: (_) => VerseActionSheet(
+      verseKey: verseKey,
+      rangeEnd: rangeEnd,
+      arabicPreview: arabicPreview,
+      reference: reference,
+      onPlayFrom: onPlayFrom,
+      onRepeat: onRepeat,
+      onSelectRange: onSelectRange,
+    ),
+  );
+}

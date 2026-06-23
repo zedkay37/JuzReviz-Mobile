@@ -5,6 +5,7 @@ class MasteryState {
   const MasteryState({
     this.fragile = const {},
     this.mastered = const {},
+    this.scarred = const {},
     this.memorizedSurahs = const {},
     this.sessionDays = const {},
   });
@@ -26,6 +27,9 @@ class MasteryState {
     return MasteryState(
       fragile: fragile,
       mastered: mastered,
+      scarred: ((j['scarred'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toSet(),
       memorizedSurahs: ((j['memorizedSurahs'] as List?) ?? const [])
           .map((e) => (e as num).toInt())
           .toSet(),
@@ -37,6 +41,9 @@ class MasteryState {
 
   final Map<String, Fragile> fragile;
   final Map<String, Mastered> mastered;
+
+  /// Cicatrices posées manuellement (badge permanent, indépendant du déclin).
+  final Set<String> scarred;
   final Set<int> memorizedSurahs;
   final Set<String> sessionDays;
 
@@ -49,6 +56,7 @@ class MasteryState {
           for (final e in mastered.entries)
             e.key: {'masteredAtMs': e.value.masteredAtMs},
         },
+        'scarred': scarred.toList()..sort(),
         'memorizedSurahs': memorizedSurahs.toList()..sort(),
         'sessionDays': sessionDays.toList()..sort(),
       };
@@ -56,12 +64,14 @@ class MasteryState {
   MasteryState copyWith({
     Map<String, Fragile>? fragile,
     Map<String, Mastered>? mastered,
+    Set<String>? scarred,
     Set<int>? memorizedSurahs,
     Set<String>? sessionDays,
   }) =>
       MasteryState(
         fragile: fragile ?? this.fragile,
         mastered: mastered ?? this.mastered,
+        scarred: scarred ?? this.scarred,
         memorizedSurahs: memorizedSurahs ?? this.memorizedSurahs,
         sessionDays: sessionDays ?? this.sessionDays,
       );

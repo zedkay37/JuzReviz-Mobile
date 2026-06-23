@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
-import 'package:juzreviz/core/designsystem/components/capture_bar.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
+import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/playback.dart';
@@ -19,7 +19,6 @@ import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/atlas/surah_picker.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
-import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 typedef _ReaderConfig = ({
@@ -398,29 +397,26 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Future<void> _capture(Verse v) async {
-    await showLanternSheet<void>(
+    final i = _verses.indexWhere((x) => x.verseKey == v.verseKey);
+    await showVerseActions(
       context,
-      builder: (ctx) => CaptureBar(
-        verseKey: v.verseKey,
-        onFragile: () {
-          ref.read(masteryControllerProvider.notifier).markFragile(v.verseKey);
-          Navigator.of(ctx).pop();
-        },
-        onMastered: () {
-          ref.read(masteryControllerProvider.notifier).markMastered(v.verseKey);
-          Navigator.of(ctx).pop();
-        },
-        onTafsir: () {
-          Navigator.of(ctx).pop();
-          showTafsir(context, ref, v.verseKey);
-        },
-        onListen: () {
-          Navigator.of(ctx).pop();
-          final i = _verses.indexWhere((x) => x.verseKey == v.verseKey);
-          if (i >= 0) _startFrom(i);
-        },
-      ),
+      verseKey: v.verseKey,
+      arabicPreview: v.arabic,
+      reference: _readableTitle(),
+      onPlayFrom: i >= 0 ? () => _startFrom(i) : null,
+      onRepeat: i >= 0 ? () => _repeatRange(i, i) : null,
     );
+  }
+
+  Future<void> _repeatRange(int startIndex, int endIndex) async {
+    final settings =
+        ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
+    final keys =
+        _verses.sublist(startIndex, endIndex + 1).map((v) => v.verseKey).toList();
+    _plan = expandPlayback(keys, AudioRepeatMode.range,
+        rangeCount: settings.rangeCount.clamp(2, 99));
+    if (_plan.isEmpty) return;
+    await _playAt(0, settings);
   }
 
   void _cycleSpeed() {
