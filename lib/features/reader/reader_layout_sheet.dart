@@ -55,7 +55,23 @@ class ReaderLayoutSheet extends ConsumerWidget {
                       return;
                     }
                     HapticFeedback.selectionClick();
-                    ctrl.edit((p) => p.copyWith(readerLayout: layout.id));
+                    // Préréglage : Flexible = arabe seul, Verset = mot-à-mot +
+                    // traduction (ajustables ensuite via le menu verset).
+                    ctrl.edit((p) {
+                      if (layout == ReaderLayout.flexible) {
+                        return p.copyWith(
+                            readerLayout: layout.id,
+                            readerWordByWord: false,
+                            readerTranslation: false);
+                      }
+                      if (layout == ReaderLayout.verseByVerse) {
+                        return p.copyWith(
+                            readerLayout: layout.id,
+                            readerWordByWord: true,
+                            readerTranslation: true);
+                      }
+                      return p.copyWith(readerLayout: layout.id);
+                    });
                     Navigator.of(context).pop();
                   },
                 ),

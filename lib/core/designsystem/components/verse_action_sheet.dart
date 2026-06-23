@@ -6,6 +6,7 @@ import 'package:juzreviz/core/designsystem/components/add_to_playlist_sheet.dart
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/features/tafsir/tafsir_panel.dart';
 
@@ -23,6 +24,7 @@ class VerseActionSheet extends ConsumerWidget {
     this.onRepeat,
     this.onStop,
     this.onSelectRange,
+    this.showDisplay = false,
   });
 
   final String verseKey;
@@ -34,6 +36,9 @@ class VerseActionSheet extends ConsumerWidget {
   final VoidCallback? onRepeat;
   final VoidCallback? onStop;
   final VoidCallback? onSelectRange;
+
+  /// Affiche les bascules d'affichage (mot-à-mot / traduction) — Reader seul.
+  final bool showDisplay;
 
   bool get _isRange => rangeEnd != null;
 
@@ -47,6 +52,9 @@ class VerseActionSheet extends ConsumerWidget {
         : verseFlag(mastery.fragile[verseKey], mastery.mastered[verseKey])
             .scarred;
     final scarred = manualScar || derivedScar;
+    final settings =
+        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final sctrl = ref.read(settingsControllerProvider.notifier);
 
     void close() => Navigator.of(context).pop();
 
@@ -70,6 +78,24 @@ class VerseActionSheet extends ConsumerWidget {
           style: TextStyle(color: t.inkSoft, fontSize: 12),
         ),
         const SizedBox(height: LanternSpace.sm),
+
+        if (showDisplay) ...[
+          _SectionLabel('Affichage'),
+          _ToggleRow(
+            icon: Icons.translate,
+            label: 'Mot à mot',
+            value: settings.readerWordByWord,
+            onChanged: (v) =>
+                sctrl.edit((p) => p.copyWith(readerWordByWord: v)),
+          ),
+          _ToggleRow(
+            icon: Icons.subtitles_outlined,
+            label: 'Traduction',
+            value: settings.readerTranslation,
+            onChanged: (v) =>
+                sctrl.edit((p) => p.copyWith(readerTranslation: v)),
+          ),
+        ],
 
         if (onSelectRange != null && !_isRange)
           _ActionRow(
@@ -201,6 +227,44 @@ class VerseActionSheet extends ConsumerWidget {
   }
 }
 
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: t.inkSoft, size: 22),
+          const SizedBox(width: LanternSpace.md),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(color: t.ink, fontSize: 15)),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: (v) {
+              HapticFeedback.selectionClick();
+              onChanged(v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   final String text;
@@ -279,6 +343,7 @@ Future<void> showVerseActions(
   VoidCallback? onRepeat,
   VoidCallback? onStop,
   VoidCallback? onSelectRange,
+  bool showDisplay = false,
 }) {
   return showLanternSheet<void>(
     context,
@@ -292,6 +357,7 @@ Future<void> showVerseActions(
       onRepeat: onRepeat,
       onStop: onStop,
       onSelectRange: onSelectRange,
+      showDisplay: showDisplay,
     ),
   );
 }

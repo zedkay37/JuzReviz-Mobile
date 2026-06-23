@@ -15,6 +15,7 @@ import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/playback.dart';
 import 'package:juzreviz/data/audio/reciters.dart';
 import 'package:juzreviz/data/settings/settings.dart';
+import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
 import 'package:juzreviz/features/atlas/surah_picker.dart';
@@ -331,20 +332,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final t = context.lantern;
     final cfg = ref.watch(settingsControllerProvider.select((s) {
       final v = s.valueOrNull ?? const Settings();
-      // La disposition pilote l'affichage : « Verset par verset » = mot-à-mot +
-      // traduction ; « Flexible » = arabe seul, taille personnalisable.
-      final verse =
-          readerLayoutFromString(v.readerLayout) == ReaderLayout.verseByVerse;
+      // Mot-à-mot et traduction sont des réglages directs (ajustables depuis le
+      // menu verset). La disposition n'est qu'un préréglage de ces deux-là.
       return (
-        wbw: verse,
-        trans: verse,
+        wbw: v.readerWordByWord,
+        trans: v.readerTranslation,
         glossLang: v.glossLang,
         transLang: v.translationLang,
         latin: v.latinAyahNumbers,
         veil: v.veilMode,
         veilWords: v.veilWords,
         focus: v.focusMode,
-        wordAudio: verse && v.wordAudio,
+        wordAudio: v.wordAudio,
         fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
       );
     }));
@@ -440,6 +439,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         const ReviewBanner(),
                         if (_resumeKey != null) _resumeChip(_resumeKey!),
                       ],
+                      // Début de sourate : en-tête calligraphié + basmallah.
+                      if (!selecting && verses.first.ayah == 1)
+                        _SurahHeaderBox(surah: verses.first.surah),
                       Expanded(child: _buildList(verses, cfg)),
                     ],
                   );
@@ -489,9 +491,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                               onStop: _stopAudio,
                             )
                           : _ReadingNavBar(
+                              focusOn: focus,
+                              onToggleFocus: () =>
+                                  setState(() => _focus = !focus),
                               onPrev: () => _scrollSet(-1),
                               onNext: () => _scrollSet(1),
-                              onFocus: () => setState(() => _focus = true),
                             ),
                 ),
               ),
@@ -636,6 +640,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       verseKey: v.verseKey,
       arabicPreview: v.arabic,
       reference: _readableTitle(),
+      showDisplay: true,
       onSelectRange: () => setState(() => _rangeStart = v.verseKey),
       onPlaySingle: () => _playSingle(v.verseKey),
       onPlayFrom: i >= 0 ? () => _startFrom(i) : null,
@@ -699,6 +704,69 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
 }
 
+/// En-tête de sourate (titre calligraphié + basmallah) au début d'une sourate.
+class _SurahHeaderBox extends ConsumerWidget {
+  const _SurahHeaderBox({required this.surah});
+  final int surah;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final meta = ref
+        .watch(surahMetasProvider)
+        .valueOrNull
+        ?.where((m) => m.number == surah)
+        .firstOrNull;
+    if (meta == null) return const SizedBox.shrink();
+    final showBasmalah = surah != 1 && surah != 9;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: LanternSpace.md, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(LanternSpace.radius),
+              border: Border.all(color: t.accent.withValues(alpha: 0.55)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'سورة ${meta.arabicName}',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                      color: t.accent,
+                      fontSize: 20,
+                      fontFamily: t.arabicFamily),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${meta.transliteration} · '
+                  '${meta.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}'
+                  ' · ${meta.ayahCount} versets',
+                  style: TextStyle(color: t.inkSoft, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (showBasmalah)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                    color: t.ink, fontSize: 22, fontFamily: t.arabicFamily),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Contrôle discret d'écoute ponctuelle en mode lecture (pause + arrêt).
 class _StopBar extends StatelessWidget {
   const _StopBar({
@@ -748,16 +816,18 @@ class _StopBar extends StatelessWidget {
   }
 }
 
-/// Barre de lecture (mode Lire) : défilement par set d'âyât, pas d'audio.
+/// Barre de lecture (mode Lire) : focus + défilement par set d'âyât, pas d'audio.
 class _ReadingNavBar extends StatelessWidget {
   const _ReadingNavBar({
+    required this.focusOn,
+    required this.onToggleFocus,
     required this.onPrev,
     required this.onNext,
-    required this.onFocus,
   });
+  final bool focusOn;
+  final VoidCallback onToggleFocus;
   final VoidCallback onPrev;
   final VoidCallback onNext;
-  final VoidCallback onFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -765,7 +835,7 @@ class _ReadingNavBar extends StatelessWidget {
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(LanternSpace.md),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: t.surface,
           borderRadius: BorderRadius.circular(28),
@@ -776,14 +846,17 @@ class _ReadingNavBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            IconButton(
-              tooltip: 'Focus',
-              icon: Icon(Icons.center_focus_strong, color: t.inkSoft),
-              onPressed: onFocus,
+            TextButton.icon(
+              onPressed: onToggleFocus,
+              icon: Icon(
+                  focusOn ? Icons.fullscreen_exit : Icons.center_focus_strong,
+                  size: 20),
+              label: Text(focusOn ? 'Quitter' : 'Focus'),
+              style: TextButton.styleFrom(foregroundColor: t.inkSoft),
             ),
             const Spacer(),
             IconButton(
-              tooltip: 'Set précédent',
+              tooltip: 'Précédent',
               icon: Icon(Icons.keyboard_arrow_up, color: t.ink),
               onPressed: onPrev,
             ),

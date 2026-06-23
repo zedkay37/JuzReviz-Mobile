@@ -126,13 +126,22 @@ class _ResumeCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.play_circle, color: t.accent, size: 30),
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: t.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(Icons.auto_stories, color: t.accent, size: 22),
+                ),
                 const SizedBox(width: LanternSpace.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Reprendre',
+                      Text('Reprendre la lecture',
                           style: TextStyle(color: t.inkSoft, fontSize: 12)),
                       Text('${meta.transliteration} · verset $ayah',
                           style: TextStyle(

@@ -133,8 +133,8 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
         textDirection: TextDirection.rtl,
         alignment: WrapAlignment.start,
         crossAxisAlignment: WrapCrossAlignment.start,
-        spacing: 12,
-        runSpacing: 6,
+        spacing: 14,
+        runSpacing: 10,
         children: [
           for (var i = 0; i < widget.verse.words.length; i++)
             _wordCell(t, widget.verse.words[i], visible: i < _visibleCount),
@@ -192,12 +192,15 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
           ),
           if (widget.wordByWord)
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 96),
-              child: Text(
-                w.gloss(widget.glossLang),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: t.inkSoft, fontSize: 12, height: 1.15),
+              constraints: const BoxConstraints(maxWidth: 110),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  w.gloss(widget.glossLang),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: t.inkSoft, fontSize: 12, height: 1.2),
+                ),
               ),
             ),
         ],
