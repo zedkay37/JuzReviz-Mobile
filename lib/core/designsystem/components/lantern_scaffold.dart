@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
+import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 
 /// Scaffold edge-to-edge thémé Lanterne (gestion `SafeArea` optionnelle).
 class LanternScaffold extends StatelessWidget {
@@ -33,9 +34,12 @@ class LanternScaffold extends StatelessWidget {
 
 /// État vide avec filigrane basmala + micro-copy douce (jamais d'écran brut).
 class LanternEmpty extends StatelessWidget {
-  const LanternEmpty({super.key, required this.message, this.icon});
+  const LanternEmpty({super.key, required this.message, this.icon, this.action});
   final String message;
   final IconData? icon;
+
+  /// CTA optionnel (ex. « Ajouter des passages »).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +70,10 @@ class LanternEmpty extends StatelessWidget {
               style: TextStyle(color: t.inkSoft, fontSize: 14),
             ),
           ),
+          if (action != null) ...[
+            const SizedBox(height: LanternSpace.md),
+            action!,
+          ],
         ],
       ),
     );

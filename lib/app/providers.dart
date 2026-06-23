@@ -246,6 +246,15 @@ final decayQueueProvider = FutureProvider<List<QueueEntry>>((ref) async {
       mastery.fragile, mastery.mastered, settings.masteryProfile, now);
 });
 
+/// Synthèse de la file de révision : nombre dû + estimation de durée (min).
+final reviewSummaryProvider =
+    FutureProvider<({int count, int minutes})>((ref) async {
+  final queue = await ref.watch(decayQueueProvider.future);
+  final count = queue.length;
+  final minutes = count == 0 ? 0 : ((count * 12) / 60).ceil().clamp(1, 999);
+  return (count: count, minutes: minutes);
+});
+
 final streakProvider = FutureProvider<int>((ref) async {
   final mastery = await ref.watch(masteryControllerProvider.future);
   final now = ref.read(clockProvider).nowMs();

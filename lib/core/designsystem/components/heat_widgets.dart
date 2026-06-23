@@ -12,6 +12,7 @@ class HeatTile extends StatelessWidget {
     required this.meta,
     required this.heat,
     required this.scarred,
+    this.showHeat = true,
     this.onTap,
     this.heroTag,
   });
@@ -19,6 +20,9 @@ class HeatTile extends StatelessWidget {
   final SurahMeta meta;
   final SurahHeat heat;
   final bool scarred;
+
+  /// `false` en mode « Explorer » : tuile neutre, focus navigation.
+  final bool showHeat;
   final VoidCallback? onTap;
   final Object? heroTag;
 
@@ -26,22 +30,27 @@ class HeatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     final dominantColor = t.heat(heat.dominant);
+    final meccan = meta.revelation == Revelation.meccan;
     final tile = Container(
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(LanternSpace.radius),
         border: Border.all(
-          color: dominantColor.withValues(alpha: heat.warmth * 0.8 + 0.15),
-          width: 1.4,
+          color: showHeat
+              ? dominantColor.withValues(alpha: heat.warmth * 0.8 + 0.15)
+              : t.border,
+          width: showHeat ? 1.4 : 1,
         ),
-        gradient: LinearGradient(
-          begin: Alignment.bottomLeft,
-          end: Alignment.topRight,
-          colors: [
-            dominantColor.withValues(alpha: heat.warmth * 0.22),
-            t.surface,
-          ],
-        ),
+        gradient: showHeat
+            ? LinearGradient(
+                begin: Alignment.bottomLeft,
+                end: Alignment.topRight,
+                colors: [
+                  dominantColor.withValues(alpha: heat.warmth * 0.22),
+                  t.surface,
+                ],
+              )
+            : null,
       ),
       padding: const EdgeInsets.all(LanternSpace.sm),
       child: Column(
@@ -60,17 +69,17 @@ class HeatTile extends StatelessWidget {
                     style: TextStyle(
                         color: t.accent,
                         fontSize: 12,
-                        fontWeight: FontWeight.w700)),
+                        fontWeight: FontWeight.w500)),
               ),
               const Spacer(),
-              if (heat.hasFragile)
+              if (showHeat && heat.hasFragile)
                 Container(
                   width: 8,
                   height: 8,
                   decoration:
                       BoxDecoration(color: t.fragile, shape: BoxShape.circle),
                 ),
-              if (scarred)
+              if (showHeat && scarred)
                 Padding(
                   padding: const EdgeInsets.only(left: 3),
                   child: Icon(Icons.local_fire_department,
@@ -83,11 +92,16 @@ class HeatTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: t.ink, fontSize: 14, fontWeight: FontWeight.w600),
+                color: t.ink, fontSize: 14, fontWeight: FontWeight.w500),
           ),
-          if (heat.needsReview > 0)
-            Text('${heat.needsReview} à revoir',
-                style: TextStyle(color: t.inkSoft, fontSize: 11)),
+          Text(
+            showHeat && heat.needsReview > 0
+                ? '${heat.needsReview} à revoir'
+                : '${meccan ? 'Mecquoise' : 'Médinoise'} · ${meta.ayahCount} v.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: t.inkSoft, fontSize: 11),
+          ),
         ],
       ),
     );
@@ -130,17 +144,17 @@ class HeatCell extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: state == HeatState.blank
-              ? t.surfaceHigh
-              : color.withValues(alpha: 0.85),
+              ? t.blank
+              : color.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(8),
           border: scarred ? Border.all(color: t.scar, width: 1.5) : null,
         ),
         alignment: Alignment.center,
         child: Text('$ayah',
             style: TextStyle(
-                color: state == HeatState.blank ? t.inkSoft : t.background,
+                color: t.ink,
                 fontSize: 12,
-                fontWeight: FontWeight.w600)),
+                fontWeight: FontWeight.w500)),
       ),
     );
   }

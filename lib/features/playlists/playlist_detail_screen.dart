@@ -31,9 +31,16 @@ class PlaylistDetailScreen extends ConsumerWidget {
         ],
       ),
       body: p.items.isEmpty
-          ? const LanternEmpty(
-              message: 'Vide. Ajoute des passages depuis l’Atlas.',
-              icon: Icons.playlist_add)
+          ? LanternEmpty(
+              message:
+                  'Cette playlist est vide. Appuie longuement sur un verset pour l’ajouter, ou parcours l’Atlas.',
+              icon: Icons.playlist_add,
+              action: FilledButton.icon(
+                onPressed: () => context.go('/atlas'),
+                icon: const Icon(Icons.grid_view),
+                label: const Text('Ajouter des passages'),
+              ),
+            )
           : ReorderableListView.builder(
               padding: const EdgeInsets.all(8),
               itemCount: p.items.length,

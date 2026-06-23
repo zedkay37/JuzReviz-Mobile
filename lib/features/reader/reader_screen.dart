@@ -8,6 +8,7 @@ import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
+import 'package:juzreviz/core/designsystem/components/review_banner.dart';
 import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
@@ -61,6 +62,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   StreamSubscription<ProcessingState>? _procSub;
   Timer? _resumeDebounce;
 
+  // Reprise surfacée : puce « Reprendre » (auto-dismiss), tap → recale.
+  String? _resumeKey;
+  bool _resumeResolved = false;
+  Timer? _resumeChipTimer;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +82,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _positions.itemPositions.removeListener(_onScrollPositions);
     _procSub?.cancel();
     _resumeDebounce?.cancel();
+    _resumeChipTimer?.cancel();
     ref.read(audioControllerProvider).stop();
     super.dispose();
   }
@@ -301,7 +308,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   if (verses.isEmpty) {
                     return const LanternEmpty(message: 'Aucun verset.');
                   }
-                  return _buildList(verses, cfg);
+                  _resolveResume(verses);
+                  if (focus) return _buildList(verses, cfg);
+                  return Column(
+                    children: [
+                      const ReviewBanner(),
+                      if (_resumeKey != null) _resumeChip(_resumeKey!),
+                      Expanded(child: _buildList(verses, cfg)),
+                    ],
+                  );
                 },
               ),
             ),
@@ -340,15 +355,51 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  void _resolveResume(List<Verse> verses) {
+    if (_resumeResolved) return;
+    final s = ref.read(settingsControllerProvider).valueOrNull;
+    if (s == null) return; // réessaie au prochain build (settings pas encore prêt)
+    _resumeResolved = true;
+    final rk = s.currentVerseKey;
+    if (rk.isEmpty) return;
+    final idx = verses.indexWhere((v) => v.verseKey == rk);
+    if (idx <= 0) return; // déjà en tête → rien à surfacer
+    _resumeKey = rk;
+    _resumeChipTimer?.cancel();
+    _resumeChipTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _resumeKey = null);
+    });
+  }
+
+  void _dismissResume() {
+    _resumeChipTimer?.cancel();
+    if (mounted) setState(() => _resumeKey = null);
+  }
+
+  Widget _resumeChip(String key) {
+    final t = context.lantern;
+    final ayah = key.split(':').last;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ActionChip(
+          avatar: Icon(Icons.history, size: 18, color: t.accent),
+          label: Text('Reprendre · verset $ayah'),
+          onPressed: () {
+            _dismissResume();
+            final settings = ref.read(settingsControllerProvider).valueOrNull ??
+                const Settings();
+            _scrollToKey(key, settings);
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildList(List<Verse> verses, _ReaderConfig cfg) {
-    // Reprise : index initial = verset courant si dans cette sélection.
-    final resumeKey =
-        ref.read(settingsControllerProvider).valueOrNull?.currentVerseKey;
-    var initial = 0;
-    if (resumeKey != null) {
-      final i = verses.indexWhere((v) => v.verseKey == resumeKey);
-      if (i >= 0) initial = i;
-    }
+    const initial = 0;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Lecture adaptative : largeur de colonne bornée sur tablette/paysage.
