@@ -95,6 +95,7 @@ class _ProfileHeader extends ConsumerWidget {
     final needsReview = ref.watch(decayQueueProvider).valueOrNull?.length ?? 0;
     final memorized = mastery?.memorizedSurahs.length ?? 0;
     final mastered = mastery?.mastered.length ?? 0;
+    final fresh = streak == 0 && mastered == 0 && memorized == 0 && needsReview == 0;
 
     return Padding(
       padding: const EdgeInsets.all(LanternSpace.md),
@@ -107,39 +108,49 @@ class _ProfileHeader extends ConsumerWidget {
             decoration: BoxDecoration(
               color: t.surface,
               borderRadius: BorderRadius.circular(LanternSpace.radius),
-              border: Border.all(color: t.surfaceHigh),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [t.accent.withValues(alpha: 0.06), t.surface],
-              ),
+              border: Border.all(color: t.border),
             ),
-            child: Row(
-              children: [
-                _Stat(value: '$streak', label: 'jours', icon: Icons.local_fire_department),
-                _Stat(value: '$mastered', label: 'maîtrisés', icon: Icons.spa),
-                _Stat(value: '$memorized', label: 'mémorisées', icon: Icons.bookmark),
-                _Stat(value: '$needsReview', label: 'à revoir', icon: Icons.timelapse),
-              ],
-            ),
+            child: fresh
+                ? Column(
+                    children: [
+                      Text('Bienvenue',
+                          style: TextStyle(
+                              color: t.ink,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text('Commence ta première lecture',
+                          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      _Stat(value: '$streak', label: 'jours'),
+                      _Stat(value: _v(mastered), label: 'maîtrisés'),
+                      _Stat(value: _v(memorized), label: 'mémorisées'),
+                      _Stat(value: _v(needsReview), label: 'à revoir'),
+                    ],
+                  ),
           ),
           const SizedBox(height: LanternSpace.sm),
           FilledButton.icon(
-            onPressed: () => context.push('/program'),
-            icon: const Icon(Icons.local_fire_department),
-            label: const Text('Programme du jour'),
+            onPressed: () => context.push(fresh ? '/' : '/program'),
+            icon: Icon(fresh ? Icons.menu_book : Icons.local_fire_department),
+            label: Text(fresh ? 'Commencer' : 'Programme du jour'),
           ),
         ],
       ),
     );
   }
+
+  // Un zéro brut décourage : tiret tant qu'aucune donnée n'existe.
+  String _v(int n) => n == 0 ? '—' : '$n';
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, required this.icon});
+  const _Stat({required this.value, required this.label});
   final String value;
   final String label;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -147,12 +158,11 @@ class _Stat extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: t.accent, size: 20),
-          const SizedBox(height: 4),
           Text(value,
               style: TextStyle(
-                  color: t.ink, fontSize: 18, fontWeight: FontWeight.w700)),
-          Text(label, style: TextStyle(color: t.inkSoft, fontSize: 11)),
+                  color: t.ink, fontSize: 17, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(color: t.inkSoft, fontSize: 10)),
         ],
       ),
     );

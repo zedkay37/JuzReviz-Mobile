@@ -31,9 +31,10 @@ class TafsirPanel extends ConsumerWidget {
     final tafsirAsync =
         ref.watch(verseTafsirProvider((lang: normLang, verseKey: verseKey)));
 
-    // Surface « parchemin » pour un confort de lecture longue.
-    const parchment = Color(0xFFF3E9D2);
-    const ink = Color(0xFF3A2E1C);
+    // Surface « parchemin » pour un confort de lecture longue (tokens dédiés).
+    final parch = tokensFor(AppTheme.parchemin);
+    final parchment = parch.background;
+    final ink = parch.ink;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -41,9 +42,10 @@ class TafsirPanel extends ConsumerWidget {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: parchment,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(LanternSpace.radius)),
+          borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(LanternSpace.radius)),
         ),
         child: Column(
           children: [
@@ -54,12 +56,12 @@ class TafsirPanel extends ConsumerWidget {
                   Icon(Icons.menu_book, color: ink.withValues(alpha: 0.7), size: 20),
                   const SizedBox(width: 8),
                   Text('Tafsir · $verseKey',
-                      style: const TextStyle(
-                          color: ink, fontSize: 16, fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: ink, fontSize: 16, fontWeight: FontWeight.w500)),
                   const Spacer(),
                   _LangToggle(current: normLang, ink: ink, accent: t.accent),
                   IconButton(
-                    icon: const Icon(Icons.close, color: ink),
+                    icon: Icon(Icons.close, color: ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -71,9 +73,9 @@ class TafsirPanel extends ConsumerWidget {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Erreur : $e')),
                 data: (text) => text.trim().isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(24),
                           child: Text('Pas de tafsir pour ce verset.',
                               style: TextStyle(color: ink)),
                         ),
@@ -83,7 +85,7 @@ class TafsirPanel extends ConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                         child: SelectableText(
                           text,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: ink, fontSize: 16, height: 1.7),
                         ),
                       ),
@@ -119,7 +121,7 @@ class _LangToggle extends ConsumerWidget {
           child: Text(label,
               style: TextStyle(
                   color: ink,
-                  fontWeight: on ? FontWeight.w700 : FontWeight.w400)),
+                  fontWeight: on ? FontWeight.w500 : FontWeight.w400)),
         ),
       );
     }

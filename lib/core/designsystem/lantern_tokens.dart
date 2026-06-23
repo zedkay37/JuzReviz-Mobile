@@ -11,13 +11,17 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
     required this.surfaceHigh,
     required this.accent,
     required this.accentSoft,
+    required this.accentInk,
     required this.ink,
     required this.inkSoft,
+    required this.inkFaint,
+    required this.border,
     required this.ember,
     required this.fragile,
     required this.fresh,
     required this.fading,
     required this.stale,
+    required this.blank,
     required this.scar,
     required this.arabicFamily,
   });
@@ -27,8 +31,17 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
   final Color surfaceHigh;
   final Color accent;
   final Color accentSoft;
+
+  /// Texte/icône posé sur un fond [accent] (jamais blanc sur or).
+  final Color accentInk;
   final Color ink;
   final Color inkSoft;
+
+  /// Labels de section, hints — plus discret que [inkSoft].
+  final Color inkFaint;
+
+  /// Bordures fines (0.5px) par défaut.
+  final Color border;
   final Color ember;
 
   // Couleurs de chaleur (Atlas / Reader).
@@ -36,6 +49,9 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
   final Color fresh;
   final Color fading;
   final Color stale;
+
+  /// Verset vierge — gris éteint, nettement distinct d'un état actif.
+  final Color blank;
   final Color scar;
 
   final String? arabicFamily;
@@ -45,7 +61,7 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
         HeatState.fresh => fresh,
         HeatState.fading => fading,
         HeatState.stale => stale,
-        HeatState.blank => surfaceHigh,
+        HeatState.blank => blank,
       };
 
   @override
@@ -55,13 +71,17 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
     Color? surfaceHigh,
     Color? accent,
     Color? accentSoft,
+    Color? accentInk,
     Color? ink,
     Color? inkSoft,
+    Color? inkFaint,
+    Color? border,
     Color? ember,
     Color? fragile,
     Color? fresh,
     Color? fading,
     Color? stale,
+    Color? blank,
     Color? scar,
     String? arabicFamily,
   }) =>
@@ -71,13 +91,17 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
         surfaceHigh: surfaceHigh ?? this.surfaceHigh,
         accent: accent ?? this.accent,
         accentSoft: accentSoft ?? this.accentSoft,
+        accentInk: accentInk ?? this.accentInk,
         ink: ink ?? this.ink,
         inkSoft: inkSoft ?? this.inkSoft,
+        inkFaint: inkFaint ?? this.inkFaint,
+        border: border ?? this.border,
         ember: ember ?? this.ember,
         fragile: fragile ?? this.fragile,
         fresh: fresh ?? this.fresh,
         fading: fading ?? this.fading,
         stale: stale ?? this.stale,
+        blank: blank ?? this.blank,
         scar: scar ?? this.scar,
         arabicFamily: arabicFamily ?? this.arabicFamily,
       );
@@ -91,13 +115,17 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
       surfaceHigh: Color.lerp(surfaceHigh, other.surfaceHigh, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
+      accentInk: Color.lerp(accentInk, other.accentInk, t)!,
       ink: Color.lerp(ink, other.ink, t)!,
       inkSoft: Color.lerp(inkSoft, other.inkSoft, t)!,
+      inkFaint: Color.lerp(inkFaint, other.inkFaint, t)!,
+      border: Color.lerp(border, other.border, t)!,
       ember: Color.lerp(ember, other.ember, t)!,
       fragile: Color.lerp(fragile, other.fragile, t)!,
       fresh: Color.lerp(fresh, other.fresh, t)!,
       fading: Color.lerp(fading, other.fading, t)!,
       stale: Color.lerp(stale, other.stale, t)!,
+      blank: Color.lerp(blank, other.blank, t)!,
       scar: Color.lerp(scar, other.scar, t)!,
       arabicFamily: t < 0.5 ? arabicFamily : other.arabicFamily,
     );

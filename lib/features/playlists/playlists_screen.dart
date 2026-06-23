@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
+import 'package:juzreviz/core/common/plural.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/prompt_dialog.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
@@ -18,7 +19,7 @@ class PlaylistsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Playlists')),
       floatingActionButton: FloatingActionButton(
         backgroundColor: t.accent,
-        foregroundColor: t.background,
+        foregroundColor: t.accentInk,
         onPressed: () => _createDialog(context, ref),
         child: const Icon(Icons.add),
       ),
@@ -36,11 +37,19 @@ class PlaylistsScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: t.surface,
                     borderRadius: BorderRadius.circular(LanternSpace.radius),
+                    border: Border.all(color: t.border),
                   ),
                   child: ListTile(
                     title: Text(p.name),
-                    subtitle: Text('${p.items.length} passage(s)'),
+                    subtitle: Text(passageCount(p.items.length),
+                        style: TextStyle(color: t.inkSoft)),
                     trailing: PopupMenuButton<String>(
+                      color: t.surfaceHigh,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: t.border),
+                      ),
+                      icon: Icon(Icons.more_vert, color: t.inkSoft),
                       onSelected: (v) {
                         if (v == 'rename') _renameDialog(context, ref, p.id, p.name);
                         if (v == 'delete') {
