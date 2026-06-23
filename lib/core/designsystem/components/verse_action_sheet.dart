@@ -18,8 +18,10 @@ class VerseActionSheet extends ConsumerWidget {
     this.rangeEnd,
     this.arabicPreview,
     this.reference,
+    this.onPlaySingle,
     this.onPlayFrom,
     this.onRepeat,
+    this.onStop,
     this.onSelectRange,
   });
 
@@ -27,8 +29,10 @@ class VerseActionSheet extends ConsumerWidget {
   final String? rangeEnd; // null = verset unique
   final String? arabicPreview;
   final String? reference;
+  final VoidCallback? onPlaySingle;
   final VoidCallback? onPlayFrom;
   final VoidCallback? onRepeat;
+  final VoidCallback? onStop;
   final VoidCallback? onSelectRange;
 
   bool get _isRange => rangeEnd != null;
@@ -136,12 +140,24 @@ class VerseActionSheet extends ConsumerWidget {
             },
           ),
 
-        if (onPlayFrom != null || onRepeat != null) ...[
+        if (onPlaySingle != null ||
+            onPlayFrom != null ||
+            onRepeat != null ||
+            onStop != null) ...[
           _SectionLabel('Écouter'),
+          if (onPlaySingle != null && !_isRange)
+            _ActionRow(
+              icon: Icons.volume_up_outlined,
+              label: 'Lire cette âyah',
+              onTap: () {
+                close();
+                onPlaySingle!();
+              },
+            ),
           if (onPlayFrom != null)
             _ActionRow(
               icon: Icons.play_arrow,
-              label: 'Lire à partir d’ici',
+              label: _isRange ? 'Lire la plage' : 'Lire à partir d’ici',
               onTap: () {
                 close();
                 onPlayFrom!();
@@ -154,6 +170,16 @@ class VerseActionSheet extends ConsumerWidget {
               onTap: () {
                 close();
                 onRepeat!();
+              },
+            ),
+          if (onStop != null)
+            _ActionRow(
+              icon: Icons.stop_circle_outlined,
+              label: 'Arrêter la lecture',
+              color: const Color(0xFFA32D2D),
+              onTap: () {
+                close();
+                onStop!();
               },
             ),
         ],
@@ -248,8 +274,10 @@ Future<void> showVerseActions(
   String? rangeEnd,
   String? arabicPreview,
   String? reference,
+  VoidCallback? onPlaySingle,
   VoidCallback? onPlayFrom,
   VoidCallback? onRepeat,
+  VoidCallback? onStop,
   VoidCallback? onSelectRange,
 }) {
   return showLanternSheet<void>(
@@ -259,8 +287,10 @@ Future<void> showVerseActions(
       rangeEnd: rangeEnd,
       arabicPreview: arabicPreview,
       reference: reference,
+      onPlaySingle: onPlaySingle,
       onPlayFrom: onPlayFrom,
       onRepeat: onRepeat,
+      onStop: onStop,
       onSelectRange: onSelectRange,
     ),
   );

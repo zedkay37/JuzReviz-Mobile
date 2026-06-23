@@ -480,11 +480,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           onToggleLoop: () =>
                               setState(() => _loopAyah = !_loopAyah),
                         )
-                      : _ReadingNavBar(
-                          onPrev: () => _scrollSet(-1),
-                          onNext: () => _scrollSet(1),
-                          onFocus: () => setState(() => _focus = true),
-                        ),
+                      // Lecture : aucune mécanique audio visible, sauf un stop
+                      // discret quand une écoute ponctuelle est en cours.
+                      : (_playing || _ptr >= 0)
+                          ? _StopBar(
+                              playing: _playing,
+                              onPlayPause: _togglePlay,
+                              onStop: _stopAudio,
+                            )
+                          : _ReadingNavBar(
+                              onPrev: () => _scrollSet(-1),
+                              onNext: () => _scrollSet(1),
+                              onFocus: () => setState(() => _focus = true),
+                            ),
                 ),
               ),
           ],
@@ -568,11 +576,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     veilWords: cfg.veilWords,
                     fontSize: cfg.fontSize,
                     active: _activeKey == v.verseKey,
-                    onWordTap: (cfg.wordAudio && !selecting)
-                        ? (pos) => _playWord(v, pos)
-                        : null,
-                    onWordLongPress:
-                        selecting ? null : (pos) => _playWordAudio(v, pos),
+                    // Tap sur un mot = audio de prononciation du mot.
+                    onWordTap: selecting ? null : (pos) => _playWordAudio(v, pos),
                     onLongPress: selecting ? null : () => _capture(v),
                   ),
                 );
@@ -603,13 +608,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  Future<void> _playWord(Verse v, int position) async {
-    // Audio-mot : joue le verset à la position du mot (fallback verset entier).
+  /// Lit une seule âyah puis s'arrête (depuis le menu verset).
+  Future<void> _playSingle(String key) async {
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
-    await ref
-        .read(audioControllerProvider)
-        .playVerse(settings.reciter, v.verseKey, rate: settings.playbackRate);
+    _plan = [key];
+    await _playAt(0, settings);
+  }
+
+  Future<void> _stopAudio() async {
+    _pauseTimer?.cancel();
+    await ref.read(audioControllerProvider).stop();
+    if (mounted) {
+      setState(() {
+        _playing = false;
+        _activeKey = null;
+        _ptr = -1;
+        _plan = const [];
+      });
+    }
   }
 
   Future<void> _capture(Verse v) async {
@@ -620,8 +637,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       arabicPreview: v.arabic,
       reference: _readableTitle(),
       onSelectRange: () => setState(() => _rangeStart = v.verseKey),
+      onPlaySingle: () => _playSingle(v.verseKey),
       onPlayFrom: i >= 0 ? () => _startFrom(i) : null,
       onRepeat: i >= 0 ? () => _repeatRange(i, i) : null,
+      onStop: _playing ? _stopAudio : null,
     );
   }
 
@@ -678,6 +697,55 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await _playAt(0, settings);
   }
 
+}
+
+/// Contrôle discret d'écoute ponctuelle en mode lecture (pause + arrêt).
+class _StopBar extends StatelessWidget {
+  const _StopBar({
+    required this.playing,
+    required this.onPlayPause,
+    required this.onStop,
+  });
+  final bool playing;
+  final VoidCallback onPlayPause;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(LanternSpace.md),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: t.surfaceHigh),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 18),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              tooltip: playing ? 'Pause' : 'Reprendre',
+              icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
+                  color: t.accent, size: 32),
+              onPressed: onPlayPause,
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: onStop,
+              icon: const Icon(Icons.stop_circle_outlined, size: 20),
+              label: const Text('Arrêter'),
+              style: TextButton.styleFrom(foregroundColor: t.inkSoft),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Barre de lecture (mode Lire) : défilement par set d'âyât, pas d'audio.
