@@ -7,13 +7,11 @@ import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
-import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/components/review_banner.dart';
 import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/playback.dart';
-import 'package:juzreviz/data/audio/reciters.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
@@ -39,8 +37,11 @@ typedef _ReaderConfig = ({
 });
 
 class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, required this.selection});
+  const ReaderScreen({super.key, required this.selection, this.autoPlay = false});
   final Selection selection;
+
+  /// Démarre la lecture audio dès l'ouverture (lancement depuis Réciter).
+  final bool autoPlay;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -79,9 +80,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   // Enchaînement auto : démarre la lecture dès que la sourate suivante est prête.
   bool _autoPlayPending = false;
 
+  // Boucle sur l'âyah courante (rejoue le verset au lieu d'avancer).
+  bool _loopAyah = false;
+
   @override
   void initState() {
     super.initState();
+    _autoPlayPending = widget.autoPlay;
     _positions.itemPositions.addListener(_onScrollPositions);
     _procSub = ref
         .read(audioControllerProvider)
@@ -124,6 +129,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (state != ProcessingState.completed || !_playing) return;
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
+    // Boucle âyah : rejoue le verset courant sans avancer ni maîtriser.
+    if (_loopAyah && _activeKey != null) {
+      ref
+          .read(audioControllerProvider)
+          .playVerse(settings.reciter, _activeKey!, rate: settings.playbackRate);
+      return;
+    }
     final finished = _ptr >= 0 && _ptr < _plan.length ? _plan[_ptr] : null;
     final isLastOccurrence =
         finished != null && (_ptr + 1 >= _plan.length || _plan[_ptr + 1] != finished);
@@ -421,14 +433,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: _AudioBar(
                   playing: _playing,
                   onPlayPause: _togglePlay,
-                  onSpeed: _cycleSpeed,
-                  onReciter: _pickReciter,
-                  onPrevSurah: (_currentSurah != null && _currentSurah! > 1)
-                      ? () => _goToSurah(_currentSurah! - 1, autoPlay: _playing)
-                      : null,
-                  onNextSurah: (_currentSurah != null && _currentSurah! < 114)
-                      ? () => _goToSurah(_currentSurah! + 1, autoPlay: _playing)
-                      : null,
+                  onPrevAyah: () => _stepAyah(-1),
+                  onNextAyah: () => _stepAyah(1),
+                  loopOn: _loopAyah,
+                  onToggleLoop: () => setState(() => _loopAyah = !_loopAyah),
                 ),
               ),
             ),
@@ -598,6 +606,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  /// Navigue d'une âyah (audio) : ±1 puis joue à partir de là.
+  Future<void> _stepAyah(int delta) async {
+    if (_verses.isEmpty) return;
+    final curKey = _activeKey;
+    var idx = curKey != null
+        ? _verses.indexWhere((v) => v.verseKey == curKey)
+        : -1;
+    if (idx < 0) idx = _firstVisibleIndex();
+    final next = (idx + delta).clamp(0, _verses.length - 1);
+    await _startFrom(next);
+  }
+
   Future<void> _repeatRange(int startIndex, int endIndex) async {
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
@@ -609,35 +629,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await _playAt(0, settings);
   }
 
-  void _cycleSpeed() {
-    final ctrl = ref.read(settingsControllerProvider.notifier);
-    final s = ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
-    const steps = [0.75, 1.0, 1.25, 1.5, 2.0];
-    final idx = steps.indexWhere((x) => x >= s.playbackRate);
-    final next = steps[(idx + 1) % steps.length];
-    ctrl.edit((p) => p.copyWith(playbackRate: next));
-    ref.read(audioControllerProvider).setRate(next);
-  }
-
-  Future<void> _pickReciter() async {
-    final ctrl = ref.read(settingsControllerProvider.notifier);
-    await showLanternSheet<void>(
-      context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final r in reciters)
-            ListTile(
-              title: Text(r.name),
-              onTap: () {
-                ctrl.edit((p) => p.copyWith(reciter: r.id));
-                Navigator.of(ctx).pop();
-              },
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 /// Bandeau du mode sélection de plage (Reader) : invite + annulation.
@@ -672,48 +663,43 @@ class _SelectionBanner extends StatelessWidget {
   }
 }
 
-class _AudioBar extends ConsumerWidget {
+class _AudioBar extends StatelessWidget {
   const _AudioBar({
     required this.playing,
     required this.onPlayPause,
-    required this.onSpeed,
-    required this.onReciter,
-    this.onPrevSurah,
-    this.onNextSurah,
+    required this.onPrevAyah,
+    required this.onNextAyah,
+    required this.loopOn,
+    required this.onToggleLoop,
   });
 
   final bool playing;
   final VoidCallback onPlayPause;
-  final VoidCallback onSpeed;
-  final VoidCallback onReciter;
-  final VoidCallback? onPrevSurah;
-  final VoidCallback? onNextSurah;
+  final VoidCallback onPrevAyah;
+  final VoidCallback onNextAyah;
+  final bool loopOn;
+  final VoidCallback onToggleLoop;
 
   Widget _barIcon(IconData icon,
           {required Color color,
-          required VoidCallback? onPressed,
-          required String tooltip}) =>
+          required VoidCallback onPressed,
+          required String tooltip,
+          double size = 24}) =>
       IconButton(
         visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.all(6),
-        constraints: const BoxConstraints(),
         tooltip: tooltip,
-        icon: Icon(icon, color: color),
+        icon: Icon(icon, color: color, size: size),
         onPressed: onPressed,
       );
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.lantern;
-    final reciter = ref.watch(settingsControllerProvider
-        .select((s) => (s.valueOrNull ?? const Settings()).reciter));
-    final rate = ref.watch(settingsControllerProvider
-        .select((s) => (s.valueOrNull ?? const Settings()).playbackRate));
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(LanternSpace.md),
         padding:
-            const EdgeInsets.symmetric(horizontal: LanternSpace.md, vertical: 6),
+            const EdgeInsets.symmetric(horizontal: LanternSpace.sm, vertical: 6),
         decoration: BoxDecoration(
           color: t.surface,
           borderRadius: BorderRadius.circular(28),
@@ -724,37 +710,24 @@ class _AudioBar extends ConsumerWidget {
         ),
         child: Row(
           children: [
+            const Spacer(),
             _barIcon(Icons.skip_previous,
-                color: onPrevSurah == null ? t.inkFaint : t.inkSoft,
-                onPressed: onPrevSurah, tooltip: 'Sourate précédente'),
+                color: t.inkSoft, onPressed: onPrevAyah, tooltip: 'Âyah précédente'),
+            const SizedBox(width: 4),
             IconButton(
-              visualDensity: VisualDensity.compact,
               tooltip: playing ? 'Pause' : 'Lecture',
               icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
-                  color: t.accent, size: 32),
+                  color: t.accent, size: 40),
               onPressed: onPlayPause,
             ),
+            const SizedBox(width: 4),
             _barIcon(Icons.skip_next,
-                color: onNextSurah == null ? t.inkFaint : t.inkSoft,
-                onPressed: onNextSurah, tooltip: 'Sourate suivante'),
-            Flexible(
-              child: TextButton(
-                style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    minimumSize: const Size(0, 36)),
-                onPressed: onReciter,
-                child: Text(reciterById(reciter).name.split(' ').first,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: t.ink)),
-              ),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  minimumSize: const Size(0, 36)),
-              onPressed: onSpeed,
-              child: Text('$rate×', style: TextStyle(color: t.inkSoft)),
-            ),
+                color: t.inkSoft, onPressed: onNextAyah, tooltip: 'Âyah suivante'),
+            const Spacer(),
+            _barIcon(Icons.repeat_one,
+                color: loopOn ? t.accent : t.inkSoft,
+                onPressed: onToggleLoop,
+                tooltip: 'Boucler l’âyah'),
             _barIcon(Icons.tune,
                 color: t.inkSoft,
                 onPressed: () => showPlaybackParams(context),

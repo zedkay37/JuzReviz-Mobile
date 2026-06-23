@@ -59,12 +59,27 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     final metas = ref.read(surahMetasProvider).valueOrNull ?? const [];
     final keys = _allKeys(metas);
     if (keys.isEmpty) return;
-    // Auto-lancement en mode défilant traduit (façon concurrent).
+    // Auto-lancement en mode défilant traduit, audio démarré.
     await ref
         .read(settingsControllerProvider.notifier)
         .edit((p) => p.copyWith(readerLayout: ReaderLayout.verseByVerse.id));
     if (!mounted) return;
-    context.push('/read', extra: SelReview('Lecture', keys));
+    context.push('/read?play=1', extra: SelReview(_label(metas), keys));
+  }
+
+  String _label(List<SurahMeta> metas) {
+    if (_surahs.isNotEmpty) {
+      final first = (_surahs.toList()..sort()).first;
+      final name =
+          metas.where((m) => m.number == first).firstOrNull?.transliteration ??
+              'Sourate $first';
+      return _surahs.length > 1 ? '$name +${_surahs.length - 1}' : name;
+    }
+    if (_juz.isNotEmpty) {
+      final j = (_juz.toList()..sort()).first;
+      return _juz.length > 1 ? 'Juz $j +${_juz.length - 1}' : 'Juz $j';
+    }
+    return 'Lecture';
   }
 
   Future<void> _save() async {
@@ -138,6 +153,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     return ListTile(
       onTap: () => setState(() {
         HapticFeedback.selectionClick();
+        _juz.clear(); // sélection non-cumulative : sourates OU juz
         on ? _surahs.remove(m.number) : _surahs.add(m.number);
       }),
       leading: _badge(t, '${m.number}', on),
@@ -157,6 +173,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     return ListTile(
       onTap: () => setState(() {
         HapticFeedback.selectionClick();
+        _surahs.clear(); // sélection non-cumulative : sourates OU juz
         on ? _juz.remove(juz) : _juz.add(juz);
       }),
       leading: _badge(t, '$juz', on),

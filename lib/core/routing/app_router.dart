@@ -43,15 +43,13 @@ GoRouter buildRouter() => GoRouter(
               GoRoute(path: '/atlas', builder: (_, _) => const AtlasScreen()),
             ]),
             StatefulShellBranch(routes: [
-              GoRoute(
-                  path: '/playlists', builder: (_, _) => const PlaylistsScreen()),
-            ]),
-            StatefulShellBranch(routes: [
               GoRoute(path: '/profile', builder: (_, _) => const SettingsScreen()),
             ]),
           ],
         ),
         GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
+        GoRoute(
+            path: '/playlists', builder: (_, _) => const PlaylistsScreen()),
         GoRoute(
             path: '/profile/recitation',
             builder: (_, _) => const RecitationPage()),
@@ -72,6 +70,7 @@ GoRouter buildRouter() => GoRouter(
           builder: (ctx, st) => ReaderScreen(
             selection: st.extra as Selection? ??
                 _selectionFromQuery(st.uri.queryParameters, const SelSurah(1, 1, 7)),
+            autoPlay: st.uri.queryParameters['play'] == '1',
           ),
         ),
         GoRoute(
@@ -122,10 +121,6 @@ class _ShellScaffold extends StatelessWidget {
               icon: Icon(Icons.grid_view_outlined),
               selectedIcon: Icon(Icons.grid_view),
               label: 'Atlas'),
-          NavigationDestination(
-              icon: Icon(Icons.queue_music_outlined),
-              selectedIcon: Icon(Icons.queue_music),
-              label: 'Playlists'),
           NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),

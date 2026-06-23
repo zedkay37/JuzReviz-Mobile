@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
+import 'package:juzreviz/core/designsystem/components/brand_logo.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
@@ -58,6 +59,12 @@ class SettingsScreen extends ConsumerWidget {
           SettingGroup(
             children: [
               NavCard(
+                icon: Icons.queue_music,
+                title: 'Playlists',
+                subtitle: 'Mes listes de lecture et révision',
+                onTap: () => context.push('/playlists'),
+              ),
+              NavCard(
                 icon: Icons.sync_alt,
                 title: 'Données',
                 subtitle: 'Export / import de l’état de révision',
@@ -113,11 +120,14 @@ class _ProfileHeader extends ConsumerWidget {
             child: fresh
                 ? Column(
                     children: [
-                      Text('Bienvenue',
+                      const BrandLogo(size: 52),
+                      const SizedBox(height: 8),
+                      Text('JuzReviz',
                           style: TextStyle(
                               color: t.ink,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500)),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5)),
                       const SizedBox(height: 4),
                       Text('Commence ta première lecture',
                           style: TextStyle(color: t.inkSoft, fontSize: 12)),
