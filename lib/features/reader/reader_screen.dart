@@ -67,6 +67,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _resumeResolved = false;
   Timer? _resumeChipTimer;
 
+  // Sélection de plage : clé du verset de départ (null = pas en sélection).
+  // État éphémère, réinitialisé à la sortie du Reader (dispose).
+  String? _rangeStart;
+
   @override
   void initState() {
     super.initState();
@@ -310,10 +314,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   }
                   _resolveResume(verses);
                   if (focus) return _buildList(verses, cfg);
+                  final selecting = _rangeStart != null;
                   return Column(
                     children: [
-                      const ReviewBanner(),
-                      if (_resumeKey != null) _resumeChip(_resumeKey!),
+                      if (selecting)
+                        _SelectionBanner(onCancel: _cancelRange)
+                      else ...[
+                        const ReviewBanner(),
+                        if (_resumeKey != null) _resumeChip(_resumeKey!),
+                      ],
                       Expanded(child: _buildList(verses, cfg)),
                     ],
                   );
@@ -415,7 +424,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               itemCount: verses.length,
               itemBuilder: (context, i) {
                 final v = verses[i];
-                return RepaintBoundary(
+                final t = context.lantern;
+                final selecting = _rangeStart != null;
+                final inRange = selecting && _isInPendingRange(v.verseKey);
+                final tile = RepaintBoundary(
                   child: InterlinearVerse(
                     verse: v,
                     wordByWord: cfg.wbw,
@@ -426,8 +438,29 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     veilMode: cfg.veil,
                     veilWords: cfg.veilWords,
                     active: _activeKey == v.verseKey,
-                    onWordTap: cfg.wordAudio ? (pos) => _playWord(v, pos) : null,
-                    onLongPress: () => _capture(v),
+                    onWordTap: (cfg.wordAudio && !selecting)
+                        ? (pos) => _playWord(v, pos)
+                        : null,
+                    onLongPress: selecting ? null : () => _capture(v),
+                  ),
+                );
+                if (!selecting) return tile;
+                // Mode sélection de plage : tap = borne de fin.
+                return GestureDetector(
+                  onTap: () => _endRange(v.verseKey),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: inRange
+                          ? t.accent.withValues(alpha: 0.08)
+                          : null,
+                      border: Border(
+                        left: BorderSide(
+                          color: inRange ? t.accent : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: tile,
                   ),
                 );
               },
@@ -454,8 +487,39 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       verseKey: v.verseKey,
       arabicPreview: v.arabic,
       reference: _readableTitle(),
+      onSelectRange: () => setState(() => _rangeStart = v.verseKey),
       onPlayFrom: i >= 0 ? () => _startFrom(i) : null,
       onRepeat: i >= 0 ? () => _repeatRange(i, i) : null,
+    );
+  }
+
+  bool _isInPendingRange(String key) => key == _rangeStart;
+
+  void _cancelRange() => setState(() => _rangeStart = null);
+
+  Future<void> _endRange(String endKey) async {
+    final start = _rangeStart;
+    if (start == null) return;
+    final s1 = int.parse(start.split(':')[0]);
+    final a1 = int.parse(start.split(':')[1]);
+    final s2 = int.parse(endKey.split(':')[0]);
+    final a2 = int.parse(endKey.split(':')[1]);
+    setState(() => _rangeStart = null);
+    if (s1 != s2) return; // plage inter-sourate non gérée
+    final from = a1 <= a2 ? a1 : a2;
+    final to = a1 <= a2 ? a2 : a1;
+    final startKey = '$s1:$from';
+    final endK = to == from ? null : '$s1:$to';
+    final ia = _verses.indexWhere((v) => v.verseKey == startKey);
+    final ib = _verses.indexWhere((v) => v.verseKey == '$s1:$to');
+    if (!mounted) return;
+    await showVerseActions(
+      context,
+      verseKey: startKey,
+      rangeEnd: endK,
+      reference: _readableTitle(),
+      onPlayFrom: ia >= 0 ? () => _startFrom(ia) : null,
+      onRepeat: (ia >= 0 && ib >= 0) ? () => _repeatRange(ia, ib) : null,
     );
   }
 
@@ -495,6 +559,38 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 Navigator.of(ctx).pop();
               },
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bandeau du mode sélection de plage (Reader) : invite + annulation.
+class _SelectionBanner extends StatelessWidget {
+  const _SelectionBanner({required this.onCancel});
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
+      padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md, vertical: 10),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        border: Border.all(color: t.accent),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.touch_app, color: t.accent, size: 20),
+          const SizedBox(width: LanternSpace.sm),
+          Expanded(
+            child: Text('Tapez le verset de fin',
+                style: TextStyle(color: t.ink, fontSize: 14)),
+          ),
+          TextButton(onPressed: onCancel, child: const Text('Annuler')),
         ],
       ),
     );
