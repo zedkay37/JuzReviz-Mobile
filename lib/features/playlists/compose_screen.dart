@@ -78,7 +78,10 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     HapticFeedback.selectionClick();
     ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('« ${name.trim()} » enregistrée')));
-    context.pop();
+    setState(() {
+      _surahs.clear();
+      _juz.clear();
+    });
   }
 
   @override
@@ -91,7 +94,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
       child: LanternScaffold(
         appBar: AppBar(
           title: Text(_count == 0
-              ? 'Composer'
+              ? 'Réciter'
               : '$_count ${pluralize(_count, 'sélection', 'sélections')}'),
           actions: [
             if (_count > 0)

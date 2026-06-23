@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
+import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/settings/settings.dart';
+import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
-import 'package:juzreviz/features/reader/reader_screen.dart';
+import 'package:juzreviz/domain/model/surah_meta.dart';
 
-/// Onglet « Lire » : reprend là où on s'est arrêté (`currentVerseKey`),
-/// affiche un coachmark léger au tout premier lancement.
+/// Onglet « Lire » : liste des sourates (façon mushaf), reprise en tête,
+/// coachmark léger au tout premier lancement. Tap → lecteur.
 class ReaderHome extends ConsumerStatefulWidget {
   const ReaderHome({super.key});
 
@@ -38,12 +41,14 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
                 style: TextStyle(
                     color: ctx.lantern.ink,
                     fontSize: 20,
-                    fontWeight: FontWeight.w700)),
+                    fontWeight: FontWeight.w500)),
             const SizedBox(height: 12),
-            const _Tip(Icons.touch_app, 'Touche l’écran pour masquer les contrôles.'),
-            const _Tip(Icons.timer, 'Appui long sur un verset : Fragile / Maîtrisé.'),
-            const _Tip(Icons.local_fire_department,
-                'Le Programme t’apporte ce qui s’éteint, sans pression.'),
+            const _Tip(Icons.touch_app,
+                'Appui long sur un verset : menu complet — fragile/maîtrisé, cicatrice, playlist, tafsir, écouter, sélection de plage.'),
+            const _Tip(Icons.view_day_outlined,
+                'Bouton disposition (en haut du lecteur) : Flexible, Verset par verset, taille du texte, Mushaf.'),
+            const _Tip(Icons.tune,
+                'Réglages de la barre audio : vitesse, répétitions, boucles, pause après âyah.'),
             const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerRight,
@@ -62,17 +67,117 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
   Widget build(BuildContext context) {
     final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final metasAsync = ref.watch(surahMetasProvider);
+    final heat = {
+      for (final tile in ref.watch(atlasHeatProvider).valueOrNull ?? const [])
+        tile.meta.number: tile.heat.warmth,
+    };
     _maybeShowCoachmark(s);
-    return metasAsync.when(
-      loading: () =>
-          const LanternScaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => LanternScaffold(body: LanternEmpty(message: 'Erreur : $e')),
-      data: (metas) {
-        final surah = int.tryParse(s.currentVerseKey.split(':').first) ?? 1;
-        final meta = metas.where((m) => m.number == surah).firstOrNull;
-        final count = meta?.ayahCount ?? 7;
-        return ReaderScreen(selection: SelSurah(surah, 1, count));
-      },
+
+    final resumeSurah = int.tryParse(s.currentVerseKey.split(':').first) ?? 1;
+
+    return LanternScaffold(
+      appBar: AppBar(title: const Text('Lire')),
+      body: metasAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+        data: (metas) {
+          final resume =
+              metas.where((m) => m.number == resumeSurah).firstOrNull;
+          return ListView.builder(
+            itemCount: metas.length + (resume != null ? 1 : 0),
+            itemBuilder: (_, i) {
+              if (resume != null && i == 0) {
+                return _ResumeCard(meta: resume, verseKey: s.currentVerseKey);
+              }
+              final m = metas[i - (resume != null ? 1 : 0)];
+              return _SurahRow(meta: m, warmth: heat[m.number] ?? 0);
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ResumeCard extends StatelessWidget {
+  const _ResumeCard({required this.meta, required this.verseKey});
+  final SurahMeta meta;
+  final String verseKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    final ayah = verseKey.split(':').last;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.md, LanternSpace.md, LanternSpace.sm),
+      child: Material(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(LanternSpace.radius),
+          onTap: () => context.push('/read',
+              extra: SelSurah(meta.number, 1, meta.ayahCount)),
+          child: Container(
+            padding: const EdgeInsets.all(LanternSpace.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(LanternSpace.radius),
+              border: Border.all(color: t.accent),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.play_circle, color: t.accent, size: 30),
+                const SizedBox(width: LanternSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Reprendre',
+                          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+                      Text('${meta.transliteration} · verset $ayah',
+                          style: TextStyle(
+                              color: t.ink,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: t.inkSoft),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SurahRow extends StatelessWidget {
+  const _SurahRow({required this.meta, required this.warmth});
+  final SurahMeta meta;
+  final double warmth;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return ListTile(
+      onTap: () => context.push('/read',
+          extra: SelSurah(meta.number, 1, meta.ayahCount)),
+      leading: CircleAvatar(
+        backgroundColor: t.surfaceHigh,
+        child: Text('${meta.number}',
+            style: TextStyle(color: t.accent, fontSize: 13)),
+      ),
+      title: Text(meta.transliteration, style: TextStyle(color: t.ink)),
+      subtitle: Text(
+        '${meta.ayahCount} versets · ${meta.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}'
+        '${warmth > 0.02 ? ' · ${(warmth * 100).round()}% mémorisé' : ''}',
+        style: TextStyle(color: t.inkSoft, fontSize: 12),
+      ),
+      trailing: Text(meta.arabicName,
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+              color: t.inkSoft, fontSize: 18, fontFamily: t.arabicFamily)),
     );
   }
 }
@@ -88,6 +193,7 @@ class _Tip extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: t.accent, size: 20),
           const SizedBox(width: 12),

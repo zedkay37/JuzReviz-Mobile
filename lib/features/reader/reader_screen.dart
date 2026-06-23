@@ -375,6 +375,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   }
                   if (useMushaf) {
                     return MushafView(
+                      initialVerseKey: verses.first.verseKey,
                       onVerseLongPress: (k) =>
                           showVerseActions(context, verseKey: k),
                     );
@@ -688,6 +689,19 @@ class _AudioBar extends ConsumerWidget {
   final VoidCallback? onPrevSurah;
   final VoidCallback? onNextSurah;
 
+  Widget _barIcon(IconData icon,
+          {required Color color,
+          required VoidCallback? onPressed,
+          required String tooltip}) =>
+      IconButton(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.all(6),
+        constraints: const BoxConstraints(),
+        tooltip: tooltip,
+        icon: Icon(icon, color: color),
+        onPressed: onPressed,
+      );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
@@ -710,39 +724,41 @@ class _AudioBar extends ConsumerWidget {
         ),
         child: Row(
           children: [
+            _barIcon(Icons.skip_previous,
+                color: onPrevSurah == null ? t.inkFaint : t.inkSoft,
+                onPressed: onPrevSurah, tooltip: 'Sourate précédente'),
             IconButton(
-              tooltip: 'Sourate précédente',
-              icon: Icon(Icons.skip_previous,
-                  color: onPrevSurah == null ? t.inkFaint : t.inkSoft),
-              onPressed: onPrevSurah,
-            ),
-            IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: playing ? 'Pause' : 'Lecture',
               icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
-                  color: t.accent, size: 34),
+                  color: t.accent, size: 32),
               onPressed: onPlayPause,
             ),
-            IconButton(
-              tooltip: 'Sourate suivante',
-              icon: Icon(Icons.skip_next,
-                  color: onNextSurah == null ? t.inkFaint : t.inkSoft),
-              onPressed: onNextSurah,
+            _barIcon(Icons.skip_next,
+                color: onNextSurah == null ? t.inkFaint : t.inkSoft,
+                onPressed: onNextSurah, tooltip: 'Sourate suivante'),
+            Flexible(
+              child: TextButton(
+                style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(0, 36)),
+                onPressed: onReciter,
+                child: Text(reciterById(reciter).name.split(' ').first,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: t.ink)),
+              ),
             ),
             TextButton(
-              onPressed: onReciter,
-              child: Text(reciterById(reciter).name.split(' ').first,
-                  style: TextStyle(color: t.ink)),
-            ),
-            const Spacer(),
-            TextButton(
+              style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 36)),
               onPressed: onSpeed,
               child: Text('$rate×', style: TextStyle(color: t.inkSoft)),
             ),
-            IconButton(
-              tooltip: 'Paramètres de lecture',
-              icon: Icon(Icons.tune, color: t.inkSoft),
-              onPressed: () => showPlaybackParams(context),
-            ),
+            _barIcon(Icons.tune,
+                color: t.inkSoft,
+                onPressed: () => showPlaybackParams(context),
+                tooltip: 'Paramètres de lecture'),
           ],
         ),
       ),

@@ -147,6 +147,10 @@ final mushafAvailableProvider =
 final mushafPageProvider = FutureProvider.family<List<MushafLine>, int>(
     (ref, page) => ref.read(mushafRepositoryProvider).linesForPage(page));
 
+/// Charge la police QCF de la page (lazy, une seule fois).
+final mushafFontProvider = FutureProvider.family<void, int>(
+    (ref, page) => ref.read(mushafRepositoryProvider).ensureFont(page));
+
 final mushafPageCountProvider =
     FutureProvider<int>((ref) => ref.read(mushafRepositoryProvider).pageCount());
 

@@ -37,6 +37,9 @@ GoRouter buildRouter() => GoRouter(
               GoRoute(path: '/', builder: (_, _) => const ReaderHome()),
             ]),
             StatefulShellBranch(routes: [
+              GoRoute(path: '/reciter', builder: (_, _) => const ComposeScreen()),
+            ]),
+            StatefulShellBranch(routes: [
               GoRoute(path: '/atlas', builder: (_, _) => const AtlasScreen()),
             ]),
             StatefulShellBranch(routes: [
@@ -49,7 +52,6 @@ GoRouter buildRouter() => GoRouter(
           ],
         ),
         GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
-        GoRoute(path: '/compose', builder: (_, _) => const ComposeScreen()),
         GoRoute(
             path: '/profile/recitation',
             builder: (_, _) => const RecitationPage()),
@@ -112,6 +114,10 @@ class _ShellScaffold extends StatelessWidget {
               icon: Icon(Icons.menu_book_outlined),
               selectedIcon: Icon(Icons.menu_book),
               label: 'Lire'),
+          NavigationDestination(
+              icon: Icon(Icons.graphic_eq),
+              selectedIcon: Icon(Icons.graphic_eq),
+              label: 'Réciter'),
           NavigationDestination(
               icon: Icon(Icons.grid_view_outlined),
               selectedIcon: Icon(Icons.grid_view),

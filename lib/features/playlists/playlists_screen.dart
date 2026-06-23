@@ -16,22 +16,12 @@ class PlaylistsScreen extends ConsumerWidget {
     final t = context.lantern;
     final playlists = ref.watch(playlistsControllerProvider).valueOrNull ?? [];
     return LanternScaffold(
-      appBar: AppBar(
-        title: const Text('Playlists'),
-        actions: [
-          IconButton(
-            tooltip: 'Playlist vide',
-            icon: const Icon(Icons.playlist_add),
-            onPressed: () => _createDialog(context, ref),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+      appBar: AppBar(title: const Text('Playlists')),
+      floatingActionButton: FloatingActionButton(
         backgroundColor: t.accent,
         foregroundColor: t.accentInk,
-        onPressed: () => context.push('/compose'),
-        icon: const Icon(Icons.library_add),
-        label: const Text('Composer'),
+        onPressed: () => _createDialog(context, ref),
+        child: const Icon(Icons.add),
       ),
       body: playlists.isEmpty
           ? const LanternEmpty(

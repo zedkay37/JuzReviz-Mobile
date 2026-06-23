@@ -10,11 +10,11 @@ import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 class MushafView extends ConsumerStatefulWidget {
   const MushafView({
     super.key,
-    this.initialPage = 1,
+    this.initialVerseKey,
     this.onVerseLongPress,
   });
 
-  final int initialPage;
+  final String? initialVerseKey;
   final ValueChanged<String>? onVerseLongPress;
 
   @override
@@ -22,8 +22,22 @@ class MushafView extends ConsumerStatefulWidget {
 }
 
 class _MushafViewState extends ConsumerState<MushafView> {
-  late final PageController _controller =
-      PageController(initialPage: (widget.initialPage - 1).clamp(0, 603));
+  final PageController _controller = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Ouvre à la page du verset courant (sinon page 1).
+    final key = widget.initialVerseKey;
+    if (key != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final page = await ref.read(mushafRepositoryProvider).pageForVerse(key);
+        if (page != null && mounted && _controller.hasClients) {
+          _controller.jumpToPage(page - 1);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -56,7 +70,10 @@ class _MushafPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
     final linesAsync = ref.watch(mushafPageProvider(page));
+    final fontReady = ref.watch(mushafFontProvider(page)).hasValue;
     final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
+
+    if (!fontReady) return const Center(child: CircularProgressIndicator());
 
     return linesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),

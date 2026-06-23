@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart' show AssetBundle, rootBundle;
+import 'package:flutter/services.dart' show AssetBundle, FontLoader, rootBundle;
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 
 /// Accès aux données de pages du moushaf (assets QPC), chargées paresseusement.
@@ -15,16 +15,27 @@ class MushafRepository {
   Map<String, dynamic>? _root;
   bool? _available;
   final Map<int, List<MushafLine>> _cache = {};
+  final Set<int> _fontsLoaded = {};
 
-  /// Vrai si le pack moushaf est embarqué.
+  /// Vrai si le pack moushaf (pages + polices) est embarqué.
   Future<bool> isAvailable() async {
     if (_available != null) return _available!;
     try {
       await _ensureLoaded();
+      await _bundle.load('assets/mushaf/fonts/p1.ttf'); // polices présentes ?
       return _available = true;
     } catch (_) {
       return _available = false;
     }
+  }
+
+  /// Charge (une fois) la police QCF d'une page → famille `p<page>`.
+  Future<void> ensureFont(int page) async {
+    if (_fontsLoaded.contains(page)) return;
+    final loader = FontLoader('p$page')
+      ..addFont(_bundle.load('assets/mushaf/fonts/p$page.ttf'));
+    await loader.load();
+    _fontsLoaded.add(page);
   }
 
   Future<void> _ensureLoaded() async {

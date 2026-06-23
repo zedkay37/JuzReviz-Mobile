@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Pack Mushaf : polices lourdes (90 Mo) — regenerees via tools/build_mushaf/fetch_qpc.dart
+assets/mushaf/fonts/*.ttf
+tools/build_mushaf/source/
