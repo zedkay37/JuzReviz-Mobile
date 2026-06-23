@@ -23,6 +23,17 @@ La **famille de police** attendue par le rendu est `p<page>` (ex. `p1`, `p604`).
   Alternative sans API : exports « glyph-based » de la **Quranic Universal
   Library** (qul.tarteel.ai/docs/glyph-based).
 
+### Récupération automatique (recommandé)
+
+Un seul script télécharge polices + mise en page dans `source/` :
+
+```bash
+dart run tools/build_mushaf/fetch_qpc.dart    # 604 polices + words.json
+```
+
+C'est l'**unique** moment où le réseau est utilisé : tout est ensuite embarqué
+dans l'APK. À l'exécution, l'app est **100 % offline** pour le moushaf.
+
 ## 2. Générer les assets
 
 ```bash
