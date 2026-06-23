@@ -6,6 +6,7 @@ import 'package:juzreviz/data/common/json_store.dart';
 import 'package:juzreviz/data/corpus/corpus_repository.dart';
 import 'package:juzreviz/data/mastery/mastery_repository.dart';
 import 'package:juzreviz/data/mastery/mastery_state.dart';
+import 'package:juzreviz/data/mushaf/mushaf_font_store.dart';
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 import 'package:juzreviz/data/mushaf/mushaf_repository.dart';
 import 'package:juzreviz/data/playlists/playlist.dart';
@@ -134,25 +135,64 @@ class DownloadsController extends Notifier<DownloadsState> {
 final tafsirRepositoryProvider =
     Provider<TafsirRepository>((ref) => TafsirRepository());
 
-// --- Moushaf (pages QPC, optionnel) ---
+// --- Moushaf (pages QPC embarquées + pack de polices téléchargeable) ---
 
 final mushafRepositoryProvider =
     Provider<MushafRepository>((ref) => MushafRepository());
 
-/// Le pack moushaf (pages + polices QCF) est-il embarqué ?
-final mushafAvailableProvider =
-    FutureProvider<bool>((ref) => ref.read(mushafRepositoryProvider).isAvailable());
+final mushafFontStoreProvider =
+    Provider<MushafFontStore>((ref) => MushafFontStore());
+
+/// Le pack de polices moushaf est-il téléchargé ? (gate des dispositions Mushaf)
+final mushafAvailableProvider = FutureProvider<bool>(
+    (ref) => ref.read(mushafFontStoreProvider).isDownloaded());
+
+final mushafCacheBytesProvider = FutureProvider<int>(
+    (ref) => ref.read(mushafFontStoreProvider).totalBytes());
 
 /// Lignes d'une page de moushaf (1-indexée).
 final mushafPageProvider = FutureProvider.family<List<MushafLine>, int>(
     (ref, page) => ref.read(mushafRepositoryProvider).linesForPage(page));
 
-/// Charge la police QCF de la page (lazy, une seule fois).
+/// Charge la police de la page depuis le stockage (lazy, une seule fois).
 final mushafFontProvider = FutureProvider.family<void, int>(
-    (ref, page) => ref.read(mushafRepositoryProvider).ensureFont(page));
+    (ref, page) => ref.read(mushafFontStoreProvider).ensureLoaded(page));
 
 final mushafPageCountProvider =
     FutureProvider<int>((ref) => ref.read(mushafRepositoryProvider).pageCount());
+
+/// Téléchargement du pack moushaf : progression 0..1 (null = inactif).
+final mushafDownloadProvider =
+    NotifierProvider<MushafDownloadController, double?>(
+        MushafDownloadController.new);
+
+class MushafDownloadController extends Notifier<double?> {
+  bool _cancel = false;
+
+  @override
+  double? build() => null;
+
+  Future<void> download() async {
+    if (state != null) return;
+    _cancel = false;
+    state = 0;
+    await ref.read(mushafFontStoreProvider).download(
+          onProgress: (d, t) => state = d / t,
+          cancelled: () => _cancel,
+        );
+    state = null;
+    ref.invalidate(mushafAvailableProvider);
+    ref.invalidate(mushafCacheBytesProvider);
+  }
+
+  void cancel() => _cancel = true;
+
+  Future<void> delete() async {
+    await ref.read(mushafFontStoreProvider).deleteAll();
+    ref.invalidate(mushafAvailableProvider);
+    ref.invalidate(mushafCacheBytesProvider);
+  }
+}
 
 /// Tafsir d'un verset, par langue (lazy, décompressé+caché par le repo).
 final verseTafsirProvider =

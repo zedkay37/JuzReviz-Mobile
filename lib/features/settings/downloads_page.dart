@@ -44,6 +44,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
       appBar: AppBar(title: const Text('Téléchargements')),
       body: Column(
         children: [
+          const _MushafPackTile(),
           ChoiceRow<String>(
             title: 'Récitateur',
             subtitle: 'La récitation hors-ligne dépend du récitateur choisi.',
@@ -172,6 +173,68 @@ class _DownloadTrailing extends StatelessWidget {
     return IconButton(
       icon: Icon(Icons.download_outlined, color: busy ? t.inkFaint : t.accent),
       onPressed: busy ? null : onDownload,
+    );
+  }
+}
+
+/// Gestion du pack moushaf (polices QCF) : lecture façon mushaf hors-ligne.
+class _MushafPackTile extends ConsumerWidget {
+  const _MushafPackTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final downloaded =
+        ref.watch(mushafAvailableProvider).valueOrNull ?? false;
+    final progress = ref.watch(mushafDownloadProvider); // 0..1 ou null
+    final bytes = ref.watch(mushafCacheBytesProvider).valueOrNull ?? 0;
+    final ctrl = ref.read(mushafDownloadProvider.notifier);
+
+    Widget trailing;
+    if (progress != null) {
+      trailing = Row(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+              value: progress == 0 ? null : progress,
+              strokeWidth: 2.5,
+              color: t.accent),
+        ),
+        const SizedBox(width: 4),
+        Text('${(progress * 100).round()}%',
+            style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        IconButton(icon: Icon(Icons.close, color: t.inkSoft), onPressed: ctrl.cancel),
+      ]);
+    } else if (downloaded) {
+      trailing = Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(formatBytes(bytes), style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        IconButton(
+            icon: Icon(Icons.delete_outline, color: t.inkSoft),
+            onPressed: ctrl.delete),
+      ]);
+    } else {
+      trailing = IconButton(
+          icon: Icon(Icons.download_outlined, color: t.accent),
+          onPressed: ctrl.download);
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+          LanternSpace.md, LanternSpace.md, LanternSpace.md, LanternSpace.sm),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        border: Border.all(color: t.border),
+      ),
+      child: ListTile(
+        leading: Icon(Icons.auto_stories, color: t.accent),
+        title: Text('Pack Mushaf (lecture moushaf)',
+            style: TextStyle(color: t.ink)),
+        subtitle: Text('Polices QCF · ~90 Mo · active les dispositions Mushaf',
+            style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        trailing: trailing,
+      ),
     );
   }
 }

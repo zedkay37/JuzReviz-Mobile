@@ -17,8 +17,9 @@ class ReaderLayoutSheet extends ConsumerWidget {
     final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final current = readerLayoutFromString(s.readerLayout);
     final ctrl = ref.read(settingsControllerProvider.notifier);
-    // Les dispositions mushaf ne sont actives que si le pack QCF est embarqué.
+    // Le pack de polices moushaf est téléchargeable à la demande.
     final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
+    final dlProgress = ref.watch(mushafDownloadProvider); // 0..1 ou null
 
     return SingleChildScrollView(
       child: Column(
@@ -31,20 +32,26 @@ class ReaderLayoutSheet extends ConsumerWidget {
           const SizedBox(height: LanternSpace.md),
           for (final layout in ReaderLayout.values)
             Builder(builder: (context) {
-              final enabled = layout.available || mushafReady;
+              final isMushaf = !layout.available;
+              final downloading = isMushaf && dlProgress != null;
+              final needsDownload = isMushaf && !mushafReady && !downloading;
+              final statusLabel = downloading
+                  ? 'Téléchargement ${((dlProgress) * 100).round()}%'
+                  : needsDownload
+                      ? 'Télécharger ~90 Mo'
+                      : null;
               return Padding(
                 padding: const EdgeInsets.only(bottom: LanternSpace.sm),
                 child: _LayoutCard(
                   layout: layout,
-                  enabled: enabled,
+                  dim: downloading,
                   selected: current == layout,
+                  statusLabel: statusLabel,
                   onTap: () {
-                    if (!enabled) {
-                      HapticFeedback.lightImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text(
-                            'Disposition Mushaf : installe le pack QCF (assets/mushaf).'),
-                      ));
+                    if (downloading) return;
+                    if (needsDownload) {
+                      HapticFeedback.selectionClick();
+                      ref.read(mushafDownloadProvider.notifier).download();
                       return;
                     }
                     HapticFeedback.selectionClick();
@@ -82,14 +89,16 @@ class ReaderLayoutSheet extends ConsumerWidget {
 class _LayoutCard extends StatelessWidget {
   const _LayoutCard({
     required this.layout,
-    required this.enabled,
+    required this.dim,
     required this.selected,
     required this.onTap,
+    this.statusLabel,
   });
   final ReaderLayout layout;
-  final bool enabled;
+  final bool dim;
   final bool selected;
   final VoidCallback onTap;
+  final String? statusLabel;
 
   IconData get _icon => switch (layout) {
         ReaderLayout.mushafTajweed => Icons.palette_outlined,
@@ -101,7 +110,6 @@ class _LayoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final dim = !enabled;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -142,12 +150,14 @@ class _LayoutCard extends StatelessWidget {
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500)),
                       ),
-                      if (dim)
+                      if (statusLabel != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
-                          child: Text('· à venir',
-                              style:
-                                  TextStyle(color: t.inkFaint, fontSize: 11)),
+                          child: Text('· $statusLabel',
+                              style: TextStyle(
+                                  color: t.accent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500)),
                         ),
                     ],
                   ),
