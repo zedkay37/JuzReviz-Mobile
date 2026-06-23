@@ -49,6 +49,20 @@ class AudioController {
     }
   }
 
+  /// Joue une URL ponctuelle allowlistée (ex. audio d'un mot). N'altère pas
+  /// la clé de verset courante du moteur séquentiel.
+  Future<bool> playUrl(String url, {double rate = 1.0}) async {
+    if (!isAllowedAudioUrl(url)) return false;
+    try {
+      await _player.setUrl(url);
+      await _player.setSpeed(rate.clamp(0.5, 2.0));
+      await _player.play();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> pause() => _player.pause();
   Future<void> resume() => _player.play();
   Future<void> stop() => _player.stop();

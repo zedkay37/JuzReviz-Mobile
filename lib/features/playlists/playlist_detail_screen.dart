@@ -75,6 +75,6 @@ class PlaylistDetailScreen extends ConsumerWidget {
       keys.addAll(verses.map((v) => v.verseKey));
     }
     if (!context.mounted) return;
-    context.push('/read', extra: SelReview(p.name, keys));
+    context.push('/read?play=1', extra: SelReview(p.name, keys));
   }
 }

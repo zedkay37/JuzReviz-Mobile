@@ -24,6 +24,7 @@ class InterlinearVerse extends StatefulWidget {
     this.highlightedPosition,
     this.active = false,
     this.onWordTap,
+    this.onWordLongPress,
     this.onLongPress,
   });
 
@@ -41,6 +42,9 @@ class InterlinearVerse extends StatefulWidget {
   /// Verset en cours de lecture (surlignage doux + auto-scroll).
   final bool active;
   final ValueChanged<int>? onWordTap;
+
+  /// Appui long sur un mot → audio de prononciation du mot.
+  final ValueChanged<int>? onWordLongPress;
   final VoidCallback? onLongPress;
 
   @override
@@ -133,7 +137,7 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
 
   Widget _wordColumns(LanternTokens t) => Wrap(
         textDirection: TextDirection.rtl,
-        alignment: WrapAlignment.center,
+        alignment: WrapAlignment.start,
         crossAxisAlignment: WrapCrossAlignment.start,
         spacing: LanternSpace.md,
         runSpacing: LanternSpace.md,
@@ -165,6 +169,9 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     }
     return GestureDetector(
       onTap: widget.onWordTap == null ? null : () => widget.onWordTap!(w.position),
+      onLongPress: widget.onWordLongPress == null
+          ? null
+          : () => widget.onWordLongPress!(w.position),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

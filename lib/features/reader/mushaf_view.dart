@@ -5,8 +5,9 @@ import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 
-/// Vue moushaf paginée (police QCF par page). Affichée quand la disposition
-/// « Madni Mushaf » est choisie et le pack d'assets présent.
+/// Vue moushaf paginée (police QCF par page). Navigation par pages (façon
+/// mushaf papier) — pas d'audio. Affichée quand la disposition Mushaf est
+/// choisie et le pack présent.
 class MushafView extends ConsumerStatefulWidget {
   const MushafView({
     super.key,
@@ -23,17 +24,18 @@ class MushafView extends ConsumerStatefulWidget {
 
 class _MushafViewState extends ConsumerState<MushafView> {
   final PageController _controller = PageController();
+  int _page = 1; // page affichée (1-indexée)
 
   @override
   void initState() {
     super.initState();
-    // Ouvre à la page du verset courant (sinon page 1).
     final key = widget.initialVerseKey;
     if (key != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final page = await ref.read(mushafRepositoryProvider).pageForVerse(key);
         if (page != null && mounted && _controller.hasClients) {
           _controller.jumpToPage(page - 1);
+          setState(() => _page = page);
         }
       });
     }
@@ -45,18 +47,54 @@ class _MushafViewState extends ConsumerState<MushafView> {
     super.dispose();
   }
 
+  void _go(int delta) {
+    final next = (_page - 1 + delta).clamp(0, 603);
+    _controller.animateToPage(next,
+        duration: LanternMotion.medium, curve: LanternMotion.emphasized);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = context.lantern;
     final count = ref.watch(mushafPageCountProvider).valueOrNull ?? 604;
-    // RTL : la première page est à droite, on « tourne » vers la gauche.
-    return PageView.builder(
-      controller: _controller,
-      reverse: true,
-      itemCount: count,
-      itemBuilder: (_, i) => _MushafPage(
-        page: i + 1,
-        onVerseLongPress: widget.onVerseLongPress,
-      ),
+    return Column(
+      children: [
+        Expanded(
+          // RTL : page précédente à droite.
+          child: PageView.builder(
+            controller: _controller,
+            reverse: true,
+            onPageChanged: (i) => setState(() => _page = i + 1),
+            itemCount: count,
+            itemBuilder: (_, i) => _MushafPage(
+              page: i + 1,
+              onVerseLongPress: widget.onVerseLongPress,
+            ),
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                OutlinedButton(
+                  onPressed: _page > 1 ? () => _go(-1) : null,
+                  child: const Icon(Icons.chevron_left),
+                ),
+                Text('Page $_page',
+                    style: TextStyle(color: t.inkSoft, fontSize: 13)),
+                OutlinedButton(
+                  onPressed: _page < count ? () => _go(1) : null,
+                  child: const Icon(Icons.chevron_right),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -78,29 +116,34 @@ class _MushafPage extends ConsumerWidget {
     return linesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Erreur page $page : $e')),
-      data: (lines) => LayoutBuilder(
-        builder: (context, c) {
-          final fontSize = (c.maxWidth / 13).clamp(20.0, 40.0);
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                for (final line in lines)
-                  _line(context, t, metas, line, fontSize),
-                Text('$page',
-                    style: TextStyle(color: t.inkSoft, fontSize: 12)),
-              ],
+      data: (lines) => Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+        // FittedBox : toute la page tient à l'écran (jamais d'overflow).
+        child: LayoutBuilder(
+          builder: (context, c) => Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: c.maxWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final line in lines)
+                      _line(context, t, metas, line),
+                  ],
+                ),
+              ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  Widget _line(BuildContext context, LanternTokens t, List metas,
-      MushafLine line, double fontSize) {
+  Widget _line(
+      BuildContext context, LanternTokens t, List metas, MushafLine line) {
+    const fontSize = 30.0;
     switch (line.type) {
       case MushafLineType.surahHeader:
         final name = metas
@@ -108,8 +151,8 @@ class _MushafPage extends ConsumerWidget {
             .map((m) => m.arabicName as String)
             .firstOrNull;
         return Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
           decoration: BoxDecoration(
             border: Border.all(color: t.accent.withValues(alpha: 0.5)),
             borderRadius: BorderRadius.circular(8),
@@ -119,35 +162,39 @@ class _MushafPage extends ConsumerWidget {
             name ?? 'سورة ${line.surah}',
             textDirection: TextDirection.rtl,
             style: TextStyle(
-                color: t.accent, fontSize: fontSize * 0.7, fontFamily: t.arabicFamily),
+                color: t.accent, fontSize: 22, fontFamily: t.arabicFamily),
           ),
         );
       case MushafLineType.basmalah:
-        return Text(
-          'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
-          textDirection: TextDirection.rtl,
-          style: TextStyle(
-              color: t.ink, fontSize: fontSize * 0.8, fontFamily: t.arabicFamily),
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+                color: t.ink, fontSize: 24, fontFamily: t.arabicFamily),
+          ),
         );
       case MushafLineType.ayah:
-        // Famille = nom de fichier officiel de la police de page (p{n}.ttf).
         final style = TextStyle(
-            color: t.ink, fontSize: fontSize, fontFamily: 'p$page', height: 1.9);
-        final words = [
-          for (final w in line.words)
-            GestureDetector(
-              onLongPress: onVerseLongPress == null
-                  ? null
-                  : () => onVerseLongPress!(w.verseKey),
-              child: Text(w.glyph, style: style),
-            ),
-        ];
-        return Row(
-          textDirection: TextDirection.rtl,
-          mainAxisAlignment: line.centered
-              ? MainAxisAlignment.center
-              : MainAxisAlignment.spaceBetween,
-          children: words,
+            color: t.ink, fontSize: fontSize, fontFamily: 'p$page', height: 2.0);
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            mainAxisAlignment: line.centered
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.spaceBetween,
+            children: [
+              for (final w in line.words)
+                GestureDetector(
+                  onLongPress: onVerseLongPress == null
+                      ? null
+                      : () => onVerseLongPress!(w.verseKey),
+                  child: Text(w.glyph, style: style),
+                ),
+            ],
+          ),
         );
     }
   }

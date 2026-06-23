@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
@@ -12,6 +13,7 @@ import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/playback.dart';
+import 'package:juzreviz/data/audio/reciters.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/verse.dart';
@@ -262,6 +264,41 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return sel is SelSurah ? sel.surah : null;
   }
 
+  /// Mode récitation (audio mis en avant) vs lecture (contrôles de défilement).
+  bool get _recitation => widget.autoPlay;
+
+  /// Défile d'un « écran » de versets (set d'âyât suivant/précédent).
+  void _scrollSet(int delta) {
+    if (_verses.isEmpty || !_scroll.isAttached) return;
+    final positions = _positions.itemPositions.value;
+    if (positions.isEmpty) return;
+    final indices = positions.map((p) => p.index);
+    final first = indices.reduce((a, b) => a < b ? a : b);
+    final last = indices.reduce((a, b) => a > b ? a : b);
+    final span = (last - first) < 1 ? 1 : (last - first);
+    final target = (delta > 0 ? last : first - span).clamp(0, _verses.length - 1);
+    _scroll.scrollTo(
+      index: target,
+      alignment: 0.02,
+      duration: LanternMotion.medium,
+      curve: LanternMotion.emphasized,
+    );
+  }
+
+  Future<void> _playWordAudio(Verse v, int position) async {
+    final settings =
+        ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
+    HapticFeedback.selectionClick();
+    final ok = await ref
+        .read(audioControllerProvider)
+        .playUrl(wordAudioUrl(v.verseKey, position), rate: settings.playbackRate);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Audio du mot indisponible.')),
+      );
+    }
+  }
+
   Future<void> _togglePlay() async {
     final audio = ref.read(audioControllerProvider);
     if (_playing) {
@@ -422,24 +459,34 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                 ),
               ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: AnimatedSlide(
-                offset: _chromeVisible ? Offset.zero : const Offset(0, 1.4),
-                duration: reduceMotion ? Duration.zero : LanternMotion.medium,
-                curve: LanternMotion.emphasized,
-                child: _AudioBar(
-                  playing: _playing,
-                  onPlayPause: _togglePlay,
-                  onPrevAyah: () => _stepAyah(-1),
-                  onNextAyah: () => _stepAyah(1),
-                  loopOn: _loopAyah,
-                  onToggleLoop: () => setState(() => _loopAyah = !_loopAyah),
+            // Mushaf : navigation propre (pages). Sinon : récitation = barre audio,
+            // lecture = contrôles de défilement (pas d'audio).
+            if (!useMushaf)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AnimatedSlide(
+                  offset: _chromeVisible ? Offset.zero : const Offset(0, 1.4),
+                  duration: reduceMotion ? Duration.zero : LanternMotion.medium,
+                  curve: LanternMotion.emphasized,
+                  child: _recitation
+                      ? _AudioBar(
+                          playing: _playing,
+                          onPlayPause: _togglePlay,
+                          onPrevAyah: () => _stepAyah(-1),
+                          onNextAyah: () => _stepAyah(1),
+                          loopOn: _loopAyah,
+                          onToggleLoop: () =>
+                              setState(() => _loopAyah = !_loopAyah),
+                        )
+                      : _ReadingNavBar(
+                          onPrev: () => _scrollSet(-1),
+                          onNext: () => _scrollSet(1),
+                          onFocus: () => setState(() => _focus = true),
+                        ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -524,6 +571,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     onWordTap: (cfg.wordAudio && !selecting)
                         ? (pos) => _playWord(v, pos)
                         : null,
+                    onWordLongPress:
+                        selecting ? null : (pos) => _playWordAudio(v, pos),
                     onLongPress: selecting ? null : () => _capture(v),
                   ),
                 );
@@ -629,6 +678,61 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await _playAt(0, settings);
   }
 
+}
+
+/// Barre de lecture (mode Lire) : défilement par set d'âyât, pas d'audio.
+class _ReadingNavBar extends StatelessWidget {
+  const _ReadingNavBar({
+    required this.onPrev,
+    required this.onNext,
+    required this.onFocus,
+  });
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final VoidCallback onFocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(LanternSpace.md),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: t.surfaceHigh),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 18),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Focus',
+              icon: Icon(Icons.center_focus_strong, color: t.inkSoft),
+              onPressed: onFocus,
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Set précédent',
+              icon: Icon(Icons.keyboard_arrow_up, color: t.ink),
+              onPressed: onPrev,
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                  backgroundColor: t.accent,
+                  foregroundColor: t.accentInk,
+                  visualDensity: VisualDensity.compact),
+              onPressed: onNext,
+              icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+              label: const Text('Suivant'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Bandeau du mode sélection de plage (Reader) : invite + annulation.

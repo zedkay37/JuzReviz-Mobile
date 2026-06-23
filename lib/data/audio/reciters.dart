@@ -28,3 +28,12 @@ String verseAudioUrl(String reciterId, String verseKey) {
   final folder = reciterById(reciterId).folder;
   return 'https://everyayah.com/data/$folder/${_pad3(surah)}${_pad3(ayah)}.mp3';
 }
+
+/// URL audio d'un mot (prononciation) — source mot-à-mot allowlistée.
+String wordAudioUrl(String verseKey, int position) {
+  final parts = verseKey.split(':');
+  final surah = _pad3(int.parse(parts[0]));
+  final ayah = _pad3(int.parse(parts[1]));
+  final word = _pad3(position);
+  return 'https://audio.qurancdn.com/wbw/${surah}_${ayah}_$word.mp3';
+}
