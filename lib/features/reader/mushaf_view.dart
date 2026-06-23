@@ -124,15 +124,13 @@ class _MushafPage extends ConsumerWidget {
           builder: (context, c) => Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: SizedBox(
-                width: c.maxWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final line in lines)
-                      _line(context, t, metas, line),
-                  ],
-                ),
+              // Largeur intrinsèque (pas de SizedBox fixe) → la mise à l'échelle
+              // tient compte de la largeur ET de la hauteur : jamais d'overflow.
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final line in lines) _line(context, t, metas, line),
+                ],
               ),
             ),
           ),
@@ -178,13 +176,13 @@ class _MushafPage extends ConsumerWidget {
       case MushafLineType.ayah:
         final style = TextStyle(
             color: t.ink, fontSize: fontSize, fontFamily: 'p$page', height: 2.0);
+        // Largeur intrinsèque (mainAxisSize.min) : la ligne prend sa taille
+        // naturelle, mise à l'échelle ensuite par le FittedBox.
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             textDirection: TextDirection.rtl,
-            mainAxisAlignment: line.centered
-                ? MainAxisAlignment.center
-                : MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
             children: [
               for (final w in line.words)
                 GestureDetector(

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
@@ -62,6 +61,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Selection get _selection => _override ?? widget.selection;
 
   List<Verse> _verses = const [];
+
+  /// Nombre d'éléments en tête de liste (en-tête de sourate) : décale les index.
+  int _lead = 0;
   List<String> _plan = const [];
   int _ptr = -1;
   bool _playing = false;
@@ -85,6 +87,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   // Boucle sur l'âyah courante (rejoue le verset au lieu d'avancer).
   bool _loopAyah = false;
+
+  // Sourate actuellement visible (pour la navigation inter-sourates en haut).
+  int? _visibleSurah;
 
   @override
   void initState() {
@@ -116,9 +121,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final firstIndex = positions
         .where((p) => p.itemTrailingEdge > 0)
         .map((p) => p.index)
-        .fold<int>(_verses.length, (a, b) => a < b ? a : b);
-    if (firstIndex < 0 || firstIndex >= _verses.length) return;
-    final key = _verses[firstIndex].verseKey;
+        .fold<int>(_verses.length + _lead, (a, b) => a < b ? a : b);
+    final vi = (firstIndex - _lead).clamp(0, _verses.length - 1);
+    final key = _verses[vi].verseKey;
+    final surah = _verses[vi].surah;
+    if (surah != _visibleSurah && mounted) {
+      setState(() => _visibleSurah = surah);
+    }
     _resumeDebounce?.cancel();
     _resumeDebounce = Timer(const Duration(milliseconds: 900), () {
       ref
@@ -210,7 +219,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final index = _verses.indexWhere((v) => v.verseKey == key);
     if (index < 0 || !_scroll.isAttached) return;
     _scroll.scrollTo(
-      index: index,
+      index: index + _lead,
       duration: LanternMotion.medium,
       curve: LanternMotion.emphasized,
       alignment: scrollAlignmentFor(
@@ -228,6 +237,56 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       return '$name ${sel.from}–${sel.to}';
     }
     return sel.label;
+  }
+
+  /// Titre : sélecteur si une seule sourate, navigation inter-sourates sinon.
+  Widget _buildTitle() {
+    final surahs = _distinctSurahs();
+    if (surahs.length <= 1) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: _changeSurah,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child:
+                    Text(_readableTitle(), overflow: TextOverflow.ellipsis),
+              ),
+              const Icon(Icons.expand_more, size: 20),
+            ],
+          ),
+        ),
+      );
+    }
+    final cur = _visibleSurah ?? surahs.first;
+    final i = surahs.indexOf(cur);
+    final prev = i > 0 ? surahs[i - 1] : null;
+    final next = i >= 0 && i < surahs.length - 1 ? surahs[i + 1] : null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Sourate précédente',
+          icon: const Icon(Icons.chevron_left),
+          onPressed: prev == null ? null : () => _gotoSelectionSurah(prev),
+        ),
+        Flexible(
+          child: Text(_surahName(cur),
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 18)),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Sourate suivante',
+          icon: const Icon(Icons.chevron_right),
+          onPressed: next == null ? null : () => _gotoSelectionSurah(next),
+        ),
+      ],
+    );
   }
 
   Future<void> _changeSurah() async {
@@ -267,6 +326,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// Mode récitation (audio mis en avant) vs lecture (contrôles de défilement).
   bool get _recitation => widget.autoPlay;
+
+  /// Sourates distinctes présentes dans la sélection (ordre de lecture).
+  List<int> _distinctSurahs() {
+    final out = <int>[];
+    for (final v in _verses) {
+      if (out.isEmpty || out.last != v.surah) out.add(v.surah);
+    }
+    return out;
+  }
+
+  String _surahName(int surah) {
+    final m = ref
+        .read(surahMetasProvider)
+        .valueOrNull
+        ?.where((x) => x.number == surah)
+        .firstOrNull;
+    return m?.transliteration ?? 'Sourate $surah';
+  }
+
+  /// Défile jusqu'au début d'une sourate de la sélection.
+  void _gotoSelectionSurah(int surah) {
+    final idx = _verses.indexWhere((v) => v.surah == surah);
+    if (idx < 0 || !_scroll.isAttached) return;
+    setState(() => _visibleSurah = surah);
+    _scroll.scrollTo(
+      index: idx + _lead,
+      alignment: 0.02,
+      duration: LanternMotion.medium,
+      curve: LanternMotion.emphasized,
+    );
+  }
 
   /// Défile d'un « écran » de versets (set d'âyât suivant/précédent).
   void _scrollSet(int delta) {
@@ -320,11 +410,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   int _firstVisibleIndex() {
     final positions = _positions.itemPositions.value;
     if (positions.isEmpty) return 0;
-    return positions
+    final listMin = positions
         .where((p) => p.itemTrailingEdge > 0)
         .map((p) => p.index)
-        .fold<int>(_verses.length, (a, b) => a < b ? a : b)
-        .clamp(0, _verses.isEmpty ? 0 : _verses.length - 1);
+        .fold<int>(_verses.length + _lead, (a, b) => a < b ? a : b);
+    return (listMin - _lead).clamp(0, _verses.isEmpty ? 0 : _verses.length - 1);
   }
 
   @override
@@ -365,29 +455,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           ? null
           : AppBar(
               titleSpacing: 8,
-              title: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: _changeSurah,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(_readableTitle(),
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      const Icon(Icons.expand_more, size: 20),
-                    ],
-                  ),
-                ),
-              ),
+              title: _buildTitle(),
               actions: [
-                IconButton(
-                  tooltip: 'Programme',
-                  icon: const Icon(Icons.local_fire_department_outlined),
-                  onPressed: () => context.push('/program'),
-                ),
                 IconButton(
                   tooltip: 'Disposition',
                   icon: const Icon(Icons.view_day_outlined),
@@ -439,9 +508,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         const ReviewBanner(),
                         if (_resumeKey != null) _resumeChip(_resumeKey!),
                       ],
-                      // Début de sourate : en-tête calligraphié + basmallah.
-                      if (!selecting && verses.first.ayah == 1)
-                        _SurahHeaderBox(surah: verses.first.surah),
                       Expanded(child: _buildList(verses, cfg)),
                     ],
                   );
@@ -549,7 +615,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Widget _buildList(List<Verse> verses, _ReaderConfig cfg) {
-    const initial = 0;
+    // En-tête de sourate (titre + basmallah) comme 1er élément scrollable.
+    _lead = (verses.isNotEmpty && verses.first.ayah == 1) ? 1 : 0;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Lecture adaptative : largeur de colonne bornée sur tablette/paysage.
@@ -560,11 +627,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             child: ScrollablePositionedList.builder(
               itemScrollController: _scroll,
               itemPositionsListener: _positions,
-              initialScrollIndex: initial,
+              initialScrollIndex: 0,
               padding: const EdgeInsets.only(top: LanternSpace.sm, bottom: 130),
-              itemCount: verses.length,
+              itemCount: verses.length + _lead,
               itemBuilder: (context, i) {
-                final v = verses[i];
+                if (_lead == 1 && i == 0) {
+                  return _SurahHeaderBox(surah: verses.first.surah);
+                }
+                final v = verses[i - _lead];
                 final t = context.lantern;
                 final selecting = _rangeStart != null;
                 final inRange = selecting && _isInPendingRange(v.verseKey);
