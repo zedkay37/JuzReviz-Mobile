@@ -2,7 +2,7 @@
 //
 // ENTRÉE (à placer par l'utilisateur) :
 //   tools/build_mushaf/source/words.json   — liste de mots de mise en page
-//   tools/build_mushaf/source/fonts/*.ttf  — polices QCF par page (qcf_p1.ttf …)
+//   tools/build_mushaf/source/fonts/*.ttf  — polices QCF par page (p1.ttf … p604.ttf)
 //
 // Format attendu de words.json (un objet par mot, dans l'ordre de lecture) :
 //   { "page": 1, "line": 3, "key": "1:1", "code": "ﭑ", "type": "word" }
@@ -15,7 +15,7 @@
 //   assets/mushaf/pages.json   — { pages: { "<p>": [lignes] }, verseToPage: {...} }
 //
 // Puis : copier source/fonts/*.ttf dans assets/mushaf/fonts/ et déclarer les
-// familles `qcf_p1`..`qcf_p604` + l'asset pages.json dans pubspec.yaml
+// familles `p1`..`p604` + l'asset pages.json dans pubspec.yaml
 // (le script imprime le bloc à coller).
 
 import 'dart:convert';
@@ -94,6 +94,6 @@ void main() {
     stdout.writeln('      fonts:\n        - asset: assets/mushaf/fonts/${f.uri.pathSegments.last}');
   }
   if (fonts.isEmpty) {
-    stdout.writeln('  # (aucune police trouvée dans source/fonts/ — famille attendue : qcf_p<page>)');
+    stdout.writeln('  # (aucune police trouvée dans source/fonts/ — famille attendue : p<page>)');
   }
 }

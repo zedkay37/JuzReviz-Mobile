@@ -3,17 +3,25 @@
 Active les dispositions **Madni Mushaf** / **Tajweed Madni Mushaf** du lecteur.
 Le code de rendu (`MushafView`) et la détection de présence sont déjà en place :
 le mode s'active automatiquement dès que les assets sont embarqués.
+La **famille de police** attendue par le rendu est `p<page>` (ex. `p1`, `p604`).
 
-## 1. Récupérer le pack QPC v1
+## 1. Récupérer le pack QPC v1 (Quran Foundation / QUL)
 
-Depuis les ressources « QPC v1 » du Quran Complex / quran.com :
+- **Polices** (TTF, une par page, déjà nommées `p1.ttf` … `p604.ttf`) :
+  `https://verses.quran.foundation/fonts/quran/hafs/v1/ttf/p{1..604}.ttf`
+  → placer dans `tools/build_mushaf/source/fonts/`.
+  Miroirs GitHub : `nuqayah/qpc-fonts`, `quranwbw/qpc-fonts`, `adnan/qpc-fonts`.
 
-- **Polices** : `QCF_P001.ttf` … `QCF_P604.ttf` (une par page).
-  → renommer en `qcf_p1.ttf` … `qcf_p604.ttf` et placer dans
-  `tools/build_mushaf/source/fonts/`.
-- **Mise en page** : exporter la table mot-à-mot (page, ligne, verset, glyphe
-  `code_v1`) au format attendu (voir en-tête de `build_mushaf.dart`) dans
-  `tools/build_mushaf/source/words.json`.
+- **Mise en page** (mushaf id **2** = QCF v1), par chapitre :
+  `https://apis.quran.foundation/content/api/v4/verses/by_chapter/{1..114}`
+  `?words=true&word_fields=code_v1,line_number,page_number&mushaf=2`
+  (l'API peut requérir un client_id/secret gratuit via le portail Quran Foundation.)
+  Transformer la réponse en `tools/build_mushaf/source/words.json` au format
+  attendu (voir en-tête de `build_mushaf.dart`) : un objet par mot
+  `{ page, line, key:"s:a", code:<code_v1>, type:"word"|"surah"|"basmalah"|"end" }`.
+
+  Alternative sans API : exports « glyph-based » de la **Quranic Universal
+  Library** (qul.tarteel.ai/docs/glyph-based).
 
 ## 2. Générer les assets
 

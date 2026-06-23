@@ -113,8 +113,9 @@ class _MushafPage extends ConsumerWidget {
               color: t.ink, fontSize: fontSize * 0.8, fontFamily: t.arabicFamily),
         );
       case MushafLineType.ayah:
+        // Famille = nom de fichier officiel de la police de page (p{n}.ttf).
         final style = TextStyle(
-            color: t.ink, fontSize: fontSize, fontFamily: 'qcf_p$page', height: 1.9);
+            color: t.ink, fontSize: fontSize, fontFamily: 'p$page', height: 1.9);
         final words = [
           for (final w in line.words)
             GestureDetector(
