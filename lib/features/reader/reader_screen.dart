@@ -71,6 +71,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   // État éphémère, réinitialisé à la sortie du Reader (dispose).
   String? _rangeStart;
 
+  // Lecture pure (« caveman ») : arabe seul, plein écran, zéro distraction.
+  bool _pure = false;
+
   @override
   void initState() {
     super.initState();
@@ -258,7 +261,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final versesAsync = ref.watch(readerVersesProvider(_selection));
     final ambient = ref.watch(settingsControllerProvider
         .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
-    final focus = _focus || cfg.focus;
+    final focus = _focus || cfg.focus || _pure;
+    // Mode pur : arabe seul (ni gloses, ni traduction, ni voile).
+    final effCfg = _pure
+        ? (
+            wbw: false,
+            trans: false,
+            glossLang: cfg.glossLang,
+            transLang: cfg.transLang,
+            latin: cfg.latin,
+            veil: VeilMode.full,
+            veilWords: cfg.veilWords,
+            focus: cfg.focus,
+            wordAudio: false,
+          )
+        : cfg;
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return LanternScaffold(
@@ -291,6 +308,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   onPressed: () => context.push('/program'),
                 ),
                 IconButton(
+                  tooltip: 'Lecture pure',
+                  icon: const Icon(Icons.chrome_reader_mode_outlined),
+                  onPressed: () => setState(() => _pure = true),
+                ),
+                IconButton(
                   tooltip: 'Focus',
                   icon: const Icon(Icons.center_focus_strong),
                   onPressed: () => setState(() => _focus = true),
@@ -313,7 +335,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     return const LanternEmpty(message: 'Aucun verset.');
                   }
                   _resolveResume(verses);
-                  if (focus) return _buildList(verses, cfg);
+                  if (focus) return _buildList(verses, effCfg);
                   final selecting = _rangeStart != null;
                   return Column(
                     children: [
@@ -323,7 +345,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         const ReviewBanner(),
                         if (_resumeKey != null) _resumeChip(_resumeKey!),
                       ],
-                      Expanded(child: _buildList(verses, cfg)),
+                      Expanded(child: _buildList(verses, effCfg)),
                     ],
                   );
                 },
@@ -338,7 +360,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   duration: reduceMotion ? Duration.zero : LanternMotion.fast,
                   child: IconButton(
                     icon: Icon(Icons.fullscreen_exit, color: t.inkSoft),
-                    onPressed: () => setState(() => _focus = false),
+                    onPressed: () => setState(() {
+                      _focus = false;
+                      _pure = false;
+                    }),
                   ),
                 ),
               ),
