@@ -61,14 +61,15 @@ class RecitationPage extends ConsumerWidget {
                 max: 2,
                 divisions: 6,
                 valueLabel: '${s.playbackRate}×',
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(playbackRate: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(playbackRate: v)),
               ),
               ChoiceRow<AudioRepeatMode>(
                 title: 'Répétition',
                 value: s.repeatMode,
                 options: const [
                   (AudioRepeatMode.off, 'Aucune'),
-                  (AudioRepeatMode.ayah, 'Par ayah'),
+                  (AudioRepeatMode.ayah, 'Par âyah'),
                   (AudioRepeatMode.range, 'Par passage'),
                   (AudioRepeatMode.progressive, 'Progressif'),
                 ],
@@ -90,7 +91,7 @@ class ReadingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = _s(ref);
-    const langs = [('fr', 'Français'), ('en', 'English')];
+    const langs = [('fr', 'Français'), ('en', 'Anglais')];
     return LanternScaffold(
       appBar: AppBar(title: const Text('Lecture & affichage')),
       body: ListView(
@@ -103,10 +104,12 @@ class ReadingPage extends ConsumerWidget {
                 title: 'Mot-à-mot',
                 subtitle: 'Glose sous chaque mot',
                 value: s.readerWordByWord,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(readerWordByWord: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(readerWordByWord: v)),
               ),
               ChoiceRow<String>(
                 title: 'Langue des gloses',
+                enabled: s.readerWordByWord,
                 value: s.glossLang == 'en' ? 'en' : 'fr',
                 options: langs,
                 onChanged: (v) => _edit(ref, (p) => p.copyWith(glossLang: v)),
@@ -114,19 +117,23 @@ class ReadingPage extends ConsumerWidget {
               SwitchRow(
                 title: 'Traduction',
                 value: s.readerTranslation,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(readerTranslation: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(readerTranslation: v)),
               ),
               ChoiceRow<String>(
                 title: 'Langue de traduction',
+                enabled: s.readerTranslation,
                 value: s.translationLang == 'en' ? 'en' : 'fr',
                 options: langs,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(translationLang: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(translationLang: v)),
               ),
               ChoiceRow<String>(
                 title: 'Langue du tafsir',
                 value: s.tafsirLanguage == 'en' ? 'en' : 'fr',
                 options: langs,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(tafsirLanguage: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(tafsirLanguage: v)),
               ),
             ],
           ),
@@ -137,12 +144,14 @@ class ReadingPage extends ConsumerWidget {
                 title: 'Chiffres latins',
                 subtitle: 'Numéros d’ayah en chiffres occidentaux',
                 value: s.latinAyahNumbers,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(latinAyahNumbers: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(latinAyahNumbers: v)),
               ),
               SwitchRow(
                 title: 'Couleurs tajwid',
                 value: s.tajweedColors,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(tajweedColors: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(tajweedColors: v)),
               ),
               SwitchRow(
                 title: 'Audio-mot',
@@ -213,8 +222,10 @@ class RevisionPage extends ConsumerWidget {
             description:
                 'Seuils larges (frais < 180 j, à revoir < 365 j). Sans pression.',
             selected: s.masteryProfile == MasteryProfile.serenity,
-            onTap: () =>
-                _edit(ref, (p) => p.copyWith(masteryProfile: MasteryProfile.serenity)),
+            onTap: () => _edit(
+              ref,
+              (p) => p.copyWith(masteryProfile: MasteryProfile.serenity),
+            ),
           ),
           const SizedBox(height: LanternSpace.sm),
           ChoiceCard(
@@ -223,7 +234,9 @@ class RevisionPage extends ConsumerWidget {
                 'Exigeant (frais < 30 j, à revoir < 90 j). Pour viser la solidité.',
             selected: s.masteryProfile == MasteryProfile.excellence,
             onTap: () => _edit(
-                ref, (p) => p.copyWith(masteryProfile: MasteryProfile.excellence)),
+              ref,
+              (p) => p.copyWith(masteryProfile: MasteryProfile.excellence),
+            ),
           ),
           const SizedBox(height: LanternSpace.md),
           SettingGroup(
@@ -244,8 +257,7 @@ class RevisionPage extends ConsumerWidget {
                       .apply(enabled: v, hhmm: s.reminderTime);
                 },
               ),
-              if (s.remindersEnabled)
-                _ReminderTimeRow(time: s.reminderTime),
+              if (s.remindersEnabled) _ReminderTimeRow(time: s.reminderTime),
             ],
           ),
         ],
@@ -263,17 +275,24 @@ class _ReminderTimeRow extends ConsumerWidget {
     final t = context.lantern;
     return ListTile(
       title: Text('Heure du rappel', style: TextStyle(color: t.ink)),
-      trailing: Text(time,
-          style: TextStyle(
-              color: t.accent, fontSize: 16, fontWeight: FontWeight.w700)),
+      trailing: Text(
+        time,
+        style: TextStyle(
+          color: t.accent,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       onTap: () async {
         final parts = time.split(':');
         final initial = TimeOfDay(
           hour: int.tryParse(parts.first) ?? 8,
           minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
         );
-        final picked =
-            await showTimePicker(context: context, initialTime: initial);
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: initial,
+        );
         if (picked == null) return;
         final hh = picked.hour.toString().padLeft(2, '0');
         final mm = picked.minute.toString().padLeft(2, '0');
@@ -303,7 +322,9 @@ class AppearancePage extends ConsumerWidget {
           const SettingSection('Thème'),
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+              horizontal: LanternSpace.md,
+              vertical: LanternSpace.sm,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -323,18 +344,21 @@ class AppearancePage extends ConsumerWidget {
                 title: 'Couleur dynamique',
                 subtitle: 'Dérivée du fond d’écran (Android), bridée lanterne',
                 value: s.dynamicColor,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(dynamicColor: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(dynamicColor: v)),
               ),
               SwitchRow(
                 title: 'Garder l’écran allumé',
                 value: s.keepScreenOn,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(keepScreenOn: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(keepScreenOn: v)),
               ),
               SwitchRow(
                 title: 'Décor vivant',
                 subtitle: 'Halo de braise discret pendant la lecture',
                 value: s.ambientDecor,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(ambientDecor: v)),
+                onChanged: (v) =>
+                    _edit(ref, (p) => p.copyWith(ambientDecor: v)),
               ),
             ],
           ),
@@ -408,7 +432,10 @@ class DataPage extends ConsumerWidget {
         title: const Text('Export copié'),
         content: SingleChildScrollView(child: SelectableText(payload)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fermer'),
+          ),
         ],
       ),
     );
@@ -423,29 +450,48 @@ class DataPage extends ConsumerWidget {
     try {
       final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
       if (map['settings'] is Map) {
-        await ref.read(settingsRepositoryProvider).save(
-            Settings.fromJsonSanitized((map['settings'] as Map).cast<String, dynamic>()));
+        await ref
+            .read(settingsRepositoryProvider)
+            .save(
+              Settings.fromJsonSanitized(
+                (map['settings'] as Map).cast<String, dynamic>(),
+              ),
+            );
       }
       if (map['mastery'] is Map) {
-        await ref.read(masteryRepositoryProvider).save(
-            MasteryState.fromJson((map['mastery'] as Map).cast<String, dynamic>()));
+        await ref
+            .read(masteryRepositoryProvider)
+            .save(
+              MasteryState.fromJson(
+                (map['mastery'] as Map).cast<String, dynamic>(),
+              ),
+            );
       }
       if (map['playlists'] is List) {
-        await ref.read(playlistsRepositoryProvider).save((map['playlists'] as List)
-            .map((e) => Playlist.fromJson((e as Map).cast<String, dynamic>()))
-            .toList());
+        await ref
+            .read(playlistsRepositoryProvider)
+            .save(
+              (map['playlists'] as List)
+                  .map(
+                    (e) =>
+                        Playlist.fromJson((e as Map).cast<String, dynamic>()),
+                  )
+                  .toList(),
+            );
       }
       ref
         ..invalidate(settingsControllerProvider)
         ..invalidate(masteryControllerProvider)
         ..invalidate(playlistsControllerProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Import réussi.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Import réussi.')));
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('JSON invalide.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('JSON invalide.')));
     }
   }
 }
@@ -472,10 +518,13 @@ class _ImportDialogState extends State<_ImportDialog> {
       content: TextField(controller: _ctrl, maxLines: 6, autofocus: true),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
         FilledButton(
-            onPressed: () => Navigator.pop(context, _ctrl.text),
-            child: const Text('Importer')),
+          onPressed: () => Navigator.pop(context, _ctrl.text),
+          child: const Text('Importer'),
+        ),
       ],
     );
   }
@@ -498,21 +547,29 @@ class AboutPage extends StatelessWidget {
             children: [
               ListTile(
                 title: Text('JuzReviz', style: TextStyle(color: t.ink)),
-                subtitle: Text('« Le Coran qui vit dans ta journée. »',
-                    style: TextStyle(color: t.inkSoft)),
+                subtitle: Text(
+                  '« Le Coran qui vit dans ta journée. »',
+                  style: TextStyle(color: t.inkSoft),
+                ),
               ),
               ListTile(
-                title: Text('Sources & attributions', style: TextStyle(color: t.ink)),
+                title: Text(
+                  'Sources & attributions',
+                  style: TextStyle(color: t.ink),
+                ),
                 subtitle: Text(
-                    'Texte uthmani : Tanzil.net. Gloses, traductions & tafsir : '
-                    'corpus word-by-word (CC BY-NC). Police arabe : Amiri Quran '
-                    '(SIL OFL). Mushaf : polices QCF (KFGQPC).',
-                    style: TextStyle(color: t.inkSoft)),
+                  'Texte uthmani : Tanzil.net. Gloses, traductions & tafsir : '
+                  'corpus word-by-word (CC BY-NC). Police arabe : Amiri Quran '
+                  '(SIL OFL). Mushaf : polices QCF (KFGQPC).',
+                  style: TextStyle(color: t.inkSoft),
+                ),
               ),
               ListTile(
                 title: Text('Vie privée', style: TextStyle(color: t.ink)),
-                subtitle: Text('Aucune donnée ne quitte l’appareil. Aucun tracking.',
-                    style: TextStyle(color: t.inkSoft)),
+                subtitle: Text(
+                  'Aucune donnée ne quitte l’appareil. Aucun tracking.',
+                  style: TextStyle(color: t.inkSoft),
+                ),
               ),
             ],
           ),

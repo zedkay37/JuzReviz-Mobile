@@ -4,26 +4,26 @@ import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 enum AppTheme { lanterne, rawda, parchemin, highContrast }
 
 AppTheme appThemeFromString(String s) => switch (s) {
-      'rawda' => AppTheme.rawda,
-      'parchemin' => AppTheme.parchemin,
-      'highContrast' => AppTheme.highContrast,
-      _ => AppTheme.lanterne,
-    };
+  'rawda' => AppTheme.rawda,
+  'parchemin' => AppTheme.parchemin,
+  'highContrast' => AppTheme.highContrast,
+  _ => AppTheme.lanterne,
+};
 
 extension AppThemeId on AppTheme {
   String get id => switch (this) {
-        AppTheme.lanterne => 'lanterne',
-        AppTheme.rawda => 'rawda',
-        AppTheme.parchemin => 'parchemin',
-        AppTheme.highContrast => 'highContrast',
-      };
+    AppTheme.lanterne => 'lanterne',
+    AppTheme.rawda => 'rawda',
+    AppTheme.parchemin => 'parchemin',
+    AppTheme.highContrast => 'highContrast',
+  };
 
   String get label => switch (this) {
-        AppTheme.lanterne => 'Lanterne (nuit)',
-        AppTheme.rawda => 'Rawda (jardin)',
-        AppTheme.parchemin => 'Parchemin',
-        AppTheme.highContrast => 'Contraste élevé',
-      };
+    AppTheme.lanterne => 'Lanterne (nuit)',
+    AppTheme.rawda => 'Rawda (jardin)',
+    AppTheme.parchemin => 'Parchemin',
+    AppTheme.highContrast => 'Contraste élevé',
+  };
 
   bool get isDark => this != AppTheme.parchemin;
 }
@@ -44,8 +44,8 @@ const _lanterneTokens = LanternTokens(
   accentSoft: Color(0xFF7A5E33),
   accentInk: Color(0xFF000000),
   ink: Color(0xFFECE6D8),
-  inkSoft: Color(0xFF6A6558),
-  inkFaint: Color(0xFF4A463D),
+  inkSoft: Color(0xFF9A9180),
+  inkFaint: Color(0xFF676052),
   border: Color(0xFF1F1F1F),
   ember: Color(0xFFBA7517),
   fragile: _heatFragile,
@@ -66,8 +66,8 @@ const _rawdaTokens = LanternTokens(
   accentSoft: Color(0xFF5E5230),
   accentInk: Color(0xFF000000),
   ink: Color(0xFFE9EFE6),
-  inkSoft: Color(0xFF6B756A),
-  inkFaint: Color(0xFF49524A),
+  inkSoft: Color(0xFF94A090),
+  inkFaint: Color(0xFF627064),
   border: Color(0xFF1A211C),
   ember: Color(0xFFBA7517),
   fragile: _heatFragile,
@@ -124,11 +124,11 @@ const _highContrastTokens = LanternTokens(
 );
 
 LanternTokens tokensFor(AppTheme theme) => switch (theme) {
-      AppTheme.lanterne => _lanterneTokens,
-      AppTheme.rawda => _rawdaTokens,
-      AppTheme.parchemin => _parcheminTokens,
-      AppTheme.highContrast => _highContrastTokens,
-    };
+  AppTheme.lanterne => _lanterneTokens,
+  AppTheme.rawda => _rawdaTokens,
+  AppTheme.parchemin => _parcheminTokens,
+  AppTheme.highContrast => _highContrastTokens,
+};
 
 ThemeData buildTheme(AppTheme theme, {Color? dynamicAccent}) {
   var tokens = tokensFor(theme);
@@ -137,15 +137,16 @@ ThemeData buildTheme(AppTheme theme, {Color? dynamicAccent}) {
     tokens = tokens.copyWith(accent: dynamicAccent);
   }
   final brightness = theme.isDark ? Brightness.dark : Brightness.light;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: tokens.accent,
-    brightness: brightness,
-  ).copyWith(
-    surface: tokens.surface,
-    primary: tokens.accent,
-    onPrimary: tokens.accentInk,
-    onSurface: tokens.ink,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: tokens.accent,
+        brightness: brightness,
+      ).copyWith(
+        surface: tokens.surface,
+        primary: tokens.accent,
+        onPrimary: tokens.accentInk,
+        onSurface: tokens.ink,
+      );
 
   return ThemeData(
     useMaterial3: true,
@@ -153,10 +154,11 @@ ThemeData buildTheme(AppTheme theme, {Color? dynamicAccent}) {
     scaffoldBackgroundColor: tokens.background,
     colorScheme: scheme,
     extensions: [tokens],
-    textTheme: (brightness == Brightness.dark
-            ? Typography.material2021().white
-            : Typography.material2021().black)
-        .apply(bodyColor: tokens.ink, displayColor: tokens.ink),
+    textTheme:
+        (brightness == Brightness.dark
+                ? Typography.material2021().white
+                : Typography.material2021().black)
+            .apply(bodyColor: tokens.ink, displayColor: tokens.ink),
     splashFactory: InkSparkle.splashFactory,
     appBarTheme: AppBarTheme(
       backgroundColor: tokens.background,

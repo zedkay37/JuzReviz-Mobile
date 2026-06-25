@@ -14,15 +14,37 @@ Future<T?> showLanternSheet<T>(
     isScrollControlled: isScrollControlled,
     backgroundColor: t.surface,
     showDragHandle: true,
+    clipBehavior: Clip.antiAlias,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(LanternSpace.radius)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(LanternSpace.md),
-        child: builder(ctx),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(LanternSpace.radius),
       ),
     ),
+    builder: (ctx) {
+      final media = MediaQuery.of(ctx);
+      final maxHeight = (media.size.height * 0.88 - media.viewInsets.bottom)
+          .clamp(280.0, media.size.height)
+          .toDouble();
+      return AnimatedPadding(
+        duration: LanternMotion.fast,
+        curve: LanternMotion.emphasized,
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                LanternSpace.md,
+                0,
+                LanternSpace.md,
+                LanternSpace.md,
+              ),
+              child: builder(ctx),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }

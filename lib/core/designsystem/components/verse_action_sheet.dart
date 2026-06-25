@@ -49,8 +49,10 @@ class VerseActionSheet extends ConsumerWidget {
     final manualScar = mastery?.scarred.contains(verseKey) ?? false;
     final derivedScar = mastery == null
         ? false
-        : verseFlag(mastery.fragile[verseKey], mastery.mastered[verseKey])
-            .scarred;
+        : verseFlag(
+            mastery.fragile[verseKey],
+            mastery.mastered[verseKey],
+          ).scarred;
     final scarred = manualScar || derivedScar;
     final settings =
         ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
@@ -58,158 +60,171 @@ class VerseActionSheet extends ConsumerWidget {
 
     void close() => Navigator.of(context).pop();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // En-tête : aperçu + référence.
-        if (arabicPreview != null)
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: LanternSpace.xs),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // En-tête : aperçu + référence.
+          if (arabicPreview != null)
+            Text(
+              arabicPreview!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                color: t.ink,
+                fontSize: 20,
+                fontFamily: t.arabicFamily,
+              ),
+            ),
           Text(
-            arabicPreview!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-                color: t.ink, fontSize: 20, fontFamily: t.arabicFamily),
+            reference ?? (_isRange ? '$verseKey – $rangeEnd' : verseKey),
+            style: TextStyle(color: t.inkSoft, fontSize: 12),
           ),
-        Text(
-          reference ?? (_isRange ? '$verseKey – $rangeEnd' : verseKey),
-          style: TextStyle(color: t.inkSoft, fontSize: 12),
-        ),
-        const SizedBox(height: LanternSpace.sm),
+          const SizedBox(height: LanternSpace.sm),
 
-        if (showDisplay) ...[
-          _SectionLabel('Affichage'),
-          _ToggleRow(
-            icon: Icons.translate,
-            label: 'Mot à mot',
-            value: settings.readerWordByWord,
-            onChanged: (v) =>
-                sctrl.edit((p) => p.copyWith(readerWordByWord: v)),
+          if (showDisplay) ...[
+            _SectionLabel('Affichage'),
+            _ToggleRow(
+              icon: Icons.translate,
+              label: 'Mot à mot',
+              value: settings.readerWordByWord,
+              onChanged: (v) =>
+                  sctrl.edit((p) => p.copyWith(readerWordByWord: v)),
+            ),
+            _ToggleRow(
+              icon: Icons.subtitles_outlined,
+              label: 'Traduction',
+              value: settings.readerTranslation,
+              onChanged: (v) =>
+                  sctrl.edit((p) => p.copyWith(readerTranslation: v)),
+            ),
+          ],
+
+          if (onSelectRange != null && !_isRange)
+            _ActionRow(
+              icon: Icons.expand,
+              label: 'Sélectionner jusqu’à…',
+              accent: true,
+              onTap: () {
+                close();
+                onSelectRange!();
+              },
+            ),
+
+          _SectionLabel('Mémorisation'),
+          _ActionRow(
+            icon: Icons.bolt,
+            label: _isRange ? 'Marquer la plage fragile' : 'Marquer fragile',
+            color: t.fragile,
+            onTap: () {
+              _forEachKey(
+                (k) =>
+                    ref.read(masteryControllerProvider.notifier).markFragile(k),
+              );
+              HapticFeedback.mediumImpact();
+              close();
+            },
           ),
-          _ToggleRow(
-            icon: Icons.subtitles_outlined,
-            label: 'Traduction',
-            value: settings.readerTranslation,
-            onChanged: (v) =>
-                sctrl.edit((p) => p.copyWith(readerTranslation: v)),
+          _ActionRow(
+            icon: Icons.spa,
+            label: _isRange ? 'Marquer la plage maîtrisée' : 'Marquer maîtrisé',
+            color: t.fresh,
+            onTap: () {
+              _forEachKey(
+                (k) => ref
+                    .read(masteryControllerProvider.notifier)
+                    .markMastered(k),
+              );
+              HapticFeedback.lightImpact();
+              close();
+            },
           ),
+          if (!_isRange)
+            _ActionRow(
+              icon: scarred ? Icons.healing : Icons.healing_outlined,
+              label: 'Cicatrice',
+              color: t.scar,
+              trailing: scarred
+                  ? Icon(Icons.check, color: t.accent, size: 18)
+                  : null,
+              onTap: () {
+                ref
+                    .read(masteryControllerProvider.notifier)
+                    .toggleScar(verseKey);
+                HapticFeedback.selectionClick();
+                close();
+              },
+            ),
+
+          _SectionLabel('Organiser'),
+          _ActionRow(
+            icon: Icons.playlist_add,
+            label: 'Ajouter à une playlist…',
+            onTap: () {
+              close();
+              showAddToPlaylist(context, passageSelection(verseKey, rangeEnd));
+            },
+          ),
+          if (!_isRange)
+            _ActionRow(
+              icon: Icons.menu_book,
+              label: 'Lire le tafsir',
+              onTap: () {
+                close();
+                showTafsir(context, ref, verseKey);
+              },
+            ),
+
+          if (onPlaySingle != null ||
+              onPlayFrom != null ||
+              onRepeat != null ||
+              onStop != null) ...[
+            _SectionLabel('Écouter'),
+            if (onPlaySingle != null && !_isRange)
+              _ActionRow(
+                icon: Icons.volume_up_outlined,
+                label: 'Lire cette âyah',
+                onTap: () {
+                  close();
+                  onPlaySingle!();
+                },
+              ),
+            if (onPlayFrom != null)
+              _ActionRow(
+                icon: Icons.play_arrow,
+                label: _isRange ? 'Lire la plage' : 'Lire à partir d’ici',
+                onTap: () {
+                  close();
+                  onPlayFrom!();
+                },
+              ),
+            if (onRepeat != null)
+              _ActionRow(
+                icon: Icons.repeat,
+                label: _isRange ? 'Répéter la plage' : 'Répéter ce passage',
+                onTap: () {
+                  close();
+                  onRepeat!();
+                },
+              ),
+            if (onStop != null)
+              _ActionRow(
+                icon: Icons.stop_circle_outlined,
+                label: 'Arrêter la lecture',
+                color: const Color(0xFFA32D2D),
+                onTap: () {
+                  close();
+                  onStop!();
+                },
+              ),
+          ],
         ],
-
-        if (onSelectRange != null && !_isRange)
-          _ActionRow(
-            icon: Icons.expand,
-            label: 'Sélectionner jusqu’à…',
-            accent: true,
-            onTap: () {
-              close();
-              onSelectRange!();
-            },
-          ),
-
-        _SectionLabel('Mémorisation'),
-        _ActionRow(
-          icon: Icons.bolt,
-          label: _isRange ? 'Marquer la plage fragile' : 'Marquer fragile',
-          color: t.fragile,
-          onTap: () {
-            _forEachKey((k) =>
-                ref.read(masteryControllerProvider.notifier).markFragile(k));
-            HapticFeedback.mediumImpact();
-            close();
-          },
-        ),
-        _ActionRow(
-          icon: Icons.spa,
-          label: _isRange ? 'Marquer la plage maîtrisée' : 'Marquer maîtrisé',
-          color: t.fresh,
-          onTap: () {
-            _forEachKey((k) =>
-                ref.read(masteryControllerProvider.notifier).markMastered(k));
-            HapticFeedback.lightImpact();
-            close();
-          },
-        ),
-        if (!_isRange)
-          _ActionRow(
-            icon: scarred ? Icons.healing : Icons.healing_outlined,
-            label: 'Cicatrice',
-            color: t.scar,
-            trailing: scarred
-                ? Icon(Icons.check, color: t.accent, size: 18)
-                : null,
-            onTap: () {
-              ref.read(masteryControllerProvider.notifier).toggleScar(verseKey);
-              HapticFeedback.selectionClick();
-              close();
-            },
-          ),
-
-        _SectionLabel('Organiser'),
-        _ActionRow(
-          icon: Icons.playlist_add,
-          label: 'Ajouter à une playlist…',
-          onTap: () {
-            close();
-            showAddToPlaylist(
-                context, passageSelection(verseKey, rangeEnd));
-          },
-        ),
-        if (!_isRange)
-          _ActionRow(
-            icon: Icons.menu_book,
-            label: 'Lire le tafsir',
-            onTap: () {
-              close();
-              showTafsir(context, ref, verseKey);
-            },
-          ),
-
-        if (onPlaySingle != null ||
-            onPlayFrom != null ||
-            onRepeat != null ||
-            onStop != null) ...[
-          _SectionLabel('Écouter'),
-          if (onPlaySingle != null && !_isRange)
-            _ActionRow(
-              icon: Icons.volume_up_outlined,
-              label: 'Lire cette âyah',
-              onTap: () {
-                close();
-                onPlaySingle!();
-              },
-            ),
-          if (onPlayFrom != null)
-            _ActionRow(
-              icon: Icons.play_arrow,
-              label: _isRange ? 'Lire la plage' : 'Lire à partir d’ici',
-              onTap: () {
-                close();
-                onPlayFrom!();
-              },
-            ),
-          if (onRepeat != null)
-            _ActionRow(
-              icon: Icons.repeat,
-              label: _isRange ? 'Répéter la plage' : 'Répéter ce passage',
-              onTap: () {
-                close();
-                onRepeat!();
-              },
-            ),
-          if (onStop != null)
-            _ActionRow(
-              icon: Icons.stop_circle_outlined,
-              label: 'Arrêter la lecture',
-              color: const Color(0xFFA32D2D),
-              onTap: () {
-                close();
-                onStop!();
-              },
-            ),
-        ],
-      ],
+      ),
     );
   }
 
@@ -243,14 +258,13 @@ class _ToggleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: Row(
         children: [
-          Icon(icon, color: t.inkSoft, size: 22),
+          Icon(icon, color: t.inkSoft, size: 21),
           const SizedBox(width: LanternSpace.md),
           Expanded(
-            child: Text(label,
-                style: TextStyle(color: t.ink, fontSize: 15)),
+            child: Text(label, style: TextStyle(color: t.ink, fontSize: 15)),
           ),
           Switch.adaptive(
             value: value,
@@ -273,14 +287,15 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, LanternSpace.md, 0, 4),
+      padding: const EdgeInsets.fromLTRB(0, 18, 0, 6),
       child: Text(
         text.toUpperCase(),
         style: TextStyle(
-            color: t.inkFaint,
-            fontSize: 11,
-            letterSpacing: 1,
-            fontWeight: FontWeight.w500),
+          color: t.inkFaint,
+          fontSize: 11,
+          letterSpacing: 1.2,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -311,17 +326,24 @@ class _ActionRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, color: color ?? (accent ? t.accent : t.inkSoft), size: 22),
+            Icon(
+              icon,
+              color: color ?? (accent ? t.accent : t.inkSoft),
+              size: 21,
+            ),
             const SizedBox(width: LanternSpace.md),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      color: fg,
-                      fontSize: 15,
-                      fontWeight: accent ? FontWeight.w500 : FontWeight.w400)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 15,
+                  fontWeight: accent ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
             ),
             ?trailing,
           ],

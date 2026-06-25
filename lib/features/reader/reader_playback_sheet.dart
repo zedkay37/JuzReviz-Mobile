@@ -15,7 +15,8 @@ class PlaybackParamsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
-    final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final s =
+        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final ctrl = ref.read(settingsControllerProvider.notifier);
 
     return SingleChildScrollView(
@@ -23,14 +24,21 @@ class PlaybackParamsSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Lecture audio',
-              style: TextStyle(
-                  color: t.ink, fontSize: 17, fontWeight: FontWeight.w500)),
+          Text(
+            'Lecture audio',
+            style: TextStyle(
+              color: t.ink,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: LanternSpace.sm),
           ChoiceRow<String>(
             title: 'Récitateur',
             value: reciterById(s.reciter).id,
-            options: [for (final r in reciters) (r.id, r.name.split(' ').first)],
+            options: [
+              for (final r in reciters) (r.id, r.name.split(' ').first),
+            ],
             onChanged: (v) {
               ctrl.edit((p) => p.copyWith(reciter: v));
             },
@@ -101,5 +109,7 @@ class PlaybackParamsSheet extends ConsumerWidget {
   }
 }
 
-Future<void> showPlaybackParams(BuildContext context) =>
-    showLanternSheet<void>(context, builder: (_) => const PlaybackParamsSheet());
+Future<void> showPlaybackParams(BuildContext context) => showLanternSheet<void>(
+  context,
+  builder: (_) => const PlaybackParamsSheet(),
+);

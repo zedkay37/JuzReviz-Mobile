@@ -37,8 +37,9 @@ class _PromptDialog extends StatefulWidget {
 }
 
 class _PromptDialogState extends State<_PromptDialog> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.initial,
+  );
 
   @override
   void dispose() {
@@ -51,11 +52,13 @@ class _PromptDialogState extends State<_PromptDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: Text(widget.title),
       content: TextField(
         controller: _ctrl,
         autofocus: true,
         textInputAction: TextInputAction.done,
+        textCapitalization: TextCapitalization.sentences,
         onSubmitted: (_) => _submit(),
         decoration: InputDecoration(hintText: widget.hint),
       ),

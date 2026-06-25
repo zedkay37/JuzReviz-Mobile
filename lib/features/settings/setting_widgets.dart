@@ -13,14 +13,19 @@ class SettingSection extends StatelessWidget {
     final t = context.lantern;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          LanternSpace.lg, LanternSpace.lg, LanternSpace.lg, LanternSpace.sm),
+        LanternSpace.lg,
+        LanternSpace.lg,
+        LanternSpace.lg,
+        LanternSpace.sm,
+      ),
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-            color: t.accent,
-            fontSize: 11,
-            letterSpacing: 1.4,
-            fontWeight: FontWeight.w700),
+          color: t.accent,
+          fontSize: 11,
+          letterSpacing: 1.4,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -38,7 +43,9 @@ class SettingGroup extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       separated.add(children[i]);
       if (i != children.length - 1) {
-        separated.add(Divider(height: 1, color: t.background.withValues(alpha: 0.5)));
+        separated.add(
+          Divider(height: 1, color: t.background.withValues(alpha: 0.5)),
+        );
       }
     }
     return Padding(
@@ -80,7 +87,9 @@ class NavCard extends StatelessWidget {
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: LanternSpace.md, vertical: 14),
+          horizontal: LanternSpace.md,
+          vertical: 14,
+        ),
         child: Row(
           children: [
             Container(
@@ -98,16 +107,21 @@ class NavCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: t.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: t.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: t.inkSoft, fontSize: 12)),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: t.inkSoft, fontSize: 12),
+                  ),
                 ],
               ),
             ),
@@ -162,43 +176,55 @@ class ChoiceRow<T> extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.enabled = true,
   });
   final String title;
   final List<(T, String)> options;
   final T value;
   final ValueChanged<T> onChanged;
   final String? subtitle;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
-          if (subtitle != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(subtitle!,
-                  style: TextStyle(color: t.inkSoft, fontSize: 12)),
-            ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (v, label) in options)
-                _Pill(
-                  label: label,
-                  selected: v == value,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onChanged(v);
-                  },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
+                if (subtitle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      subtitle!,
+                      style: TextStyle(color: t.inkSoft, fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (v, label) in options)
+                      _Pill(
+                        label: label,
+                        enabled: enabled,
+                        selected: v == value,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onChanged(v);
+                        },
+                      ),
+                  ],
                 ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -207,8 +233,14 @@ class ChoiceRow<T> extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.selected, required this.onTap});
+  const _Pill({
+    required this.label,
+    required this.enabled,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
+  final bool enabled;
   final bool selected;
   final VoidCallback onTap;
 
@@ -216,23 +248,32 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: LanternMotion.fast,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? t.accent.withValues(alpha: 0.18) : t.surfaceHigh,
+          color: selected && enabled
+              ? t.accent.withValues(alpha: 0.18)
+              : t.surfaceHigh,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? t.accent : Colors.transparent,
+            color: selected && enabled ? t.accent : Colors.transparent,
             width: 1.2,
           ),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? t.accent : t.inkSoft,
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: !enabled
+                ? t.inkFaint
+                : selected
+                ? t.accent
+                : t.inkSoft,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
       ),
     );
   }
@@ -270,9 +311,14 @@ class SliderRow extends StatelessWidget {
             children: [
               Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
               const Spacer(),
-              Text(valueLabel,
-                  style: TextStyle(
-                      color: t.accent, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text(
+                valueLabel,
+                style: TextStyle(
+                  color: t.accent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           Slider(
@@ -338,15 +384,23 @@ class ChoiceCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: t.ink,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: t.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(description,
-                      style: TextStyle(
-                          color: t.inkSoft, fontSize: 12, height: 1.4)),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: t.inkSoft,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -396,7 +450,10 @@ class ThemeSwatch extends StatelessWidget {
               child: Container(
                 width: 26,
                 height: 26,
-                decoration: BoxDecoration(color: tokens.accent, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: tokens.accent,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),
@@ -409,7 +466,9 @@ class ThemeSwatch extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  color: selected ? t.accent : t.inkSoft, fontSize: 11),
+                color: selected ? t.accent : t.inkSoft,
+                fontSize: 11,
+              ),
             ),
           ),
         ],

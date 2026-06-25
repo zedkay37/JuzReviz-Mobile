@@ -33,31 +33,43 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
           .edit((p) => p.copyWith(coachmarkSeen: true));
       showLanternSheet<void>(
         context,
-        builder: (ctx) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Bienvenue',
+        builder: (ctx) => SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bienvenue',
                 style: TextStyle(
-                    color: ctx.lantern.ink,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500)),
-            const SizedBox(height: 12),
-            const _Tip(Icons.touch_app,
-                'Appui long sur un verset : menu complet — fragile/maîtrisé, cicatrice, playlist, tafsir, écouter, sélection de plage.'),
-            const _Tip(Icons.view_day_outlined,
-                'Bouton disposition (en haut du lecteur) : Flexible, Verset par verset, taille du texte, Mushaf.'),
-            const _Tip(Icons.tune,
-                'Réglages de la barre audio : vitesse, répétitions, boucles, pause après âyah.'),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Commencer'),
+                  color: ctx.lantern.ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const _Tip(
+                Icons.touch_app,
+                'Appui long sur un verset : menu complet — fragile/maîtrisé, cicatrice, playlist, tafsir, écouter, sélection de plage.',
+              ),
+              const _Tip(
+                Icons.view_day_outlined,
+                'Bouton disposition (en haut du lecteur) : Flexible, Verset par verset, taille du texte, Mushaf.',
+              ),
+              const _Tip(
+                Icons.tune,
+                'Réglages de la barre audio : vitesse, répétitions, boucles, pause après âyah.',
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Commencer'),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     });
@@ -65,7 +77,8 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
 
   @override
   Widget build(BuildContext context) {
-    final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final s =
+        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final metasAsync = ref.watch(surahMetasProvider);
     final heat = {
       for (final tile in ref.watch(atlasHeatProvider).valueOrNull ?? const [])
@@ -81,8 +94,9 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
         data: (metas) {
-          final resume =
-              metas.where((m) => m.number == resumeSurah).firstOrNull;
+          final resume = metas
+              .where((m) => m.number == resumeSurah)
+              .firstOrNull;
           return ListView.builder(
             itemCount: metas.length + (resume != null ? 1 : 0),
             itemBuilder: (_, i) {
@@ -110,14 +124,20 @@ class _ResumeCard extends StatelessWidget {
     final ayah = verseKey.split(':').last;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.md, LanternSpace.md, LanternSpace.sm),
+        LanternSpace.md,
+        LanternSpace.md,
+        LanternSpace.md,
+        LanternSpace.sm,
+      ),
       child: Material(
         color: t.surface,
         borderRadius: BorderRadius.circular(LanternSpace.radius),
         child: InkWell(
           borderRadius: BorderRadius.circular(LanternSpace.radius),
-          onTap: () => context.push('/read',
-              extra: SelSurah(meta.number, 1, meta.ayahCount)),
+          onTap: () => context.push(
+            '/read',
+            extra: SelSurah(meta.number, 1, meta.ayahCount),
+          ),
           child: Container(
             padding: const EdgeInsets.all(LanternSpace.md),
             decoration: BoxDecoration(
@@ -141,13 +161,18 @@ class _ResumeCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Reprendre la lecture',
-                          style: TextStyle(color: t.inkSoft, fontSize: 12)),
-                      Text('${meta.transliteration} · verset $ayah',
-                          style: TextStyle(
-                              color: t.ink,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500)),
+                      Text(
+                        'Reprendre la lecture',
+                        style: TextStyle(color: t.inkSoft, fontSize: 12),
+                      ),
+                      Text(
+                        '${meta.transliteration} · verset $ayah',
+                        style: TextStyle(
+                          color: t.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -170,12 +195,16 @@ class _SurahRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     return ListTile(
-      onTap: () => context.push('/read',
-          extra: SelSurah(meta.number, 1, meta.ayahCount)),
+      onTap: () => context.push(
+        '/read',
+        extra: SelSurah(meta.number, 1, meta.ayahCount),
+      ),
       leading: CircleAvatar(
         backgroundColor: t.surfaceHigh,
-        child: Text('${meta.number}',
-            style: TextStyle(color: t.accent, fontSize: 13)),
+        child: Text(
+          '${meta.number}',
+          style: TextStyle(color: t.accent, fontSize: 13),
+        ),
       ),
       title: Text(meta.transliteration, style: TextStyle(color: t.ink)),
       subtitle: Text(
@@ -183,10 +212,15 @@ class _SurahRow extends StatelessWidget {
         '${warmth > 0.02 ? ' · ${(warmth * 100).round()}% mémorisé' : ''}',
         style: TextStyle(color: t.inkSoft, fontSize: 12),
       ),
-      trailing: Text(meta.arabicName,
-          textDirection: TextDirection.rtl,
-          style: TextStyle(
-              color: t.inkSoft, fontSize: 18, fontFamily: t.arabicFamily)),
+      trailing: Text(
+        meta.arabicName,
+        textDirection: TextDirection.rtl,
+        style: TextStyle(
+          color: t.inkSoft,
+          fontSize: 18,
+          fontFamily: t.arabicFamily,
+        ),
+      ),
     );
   }
 }
@@ -206,7 +240,9 @@ class _Tip extends StatelessWidget {
         children: [
           Icon(icon, color: t.accent, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: TextStyle(color: t.inkSoft))),
+          Expanded(
+            child: Text(text, style: TextStyle(color: t.inkSoft)),
+          ),
         ],
       ),
     );
