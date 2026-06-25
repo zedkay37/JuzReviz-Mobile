@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/routing/app_router.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.juzreviz.audio',
+    androidNotificationChannelName: 'Lecture',
+    androidNotificationOngoing: true,
+  );
   runApp(const ProviderScope(child: JuzRevizApp()));
 }
 
@@ -19,6 +26,18 @@ class JuzRevizApp extends ConsumerStatefulWidget {
 
 class _JuzRevizAppState extends ConsumerState<JuzRevizApp> {
   final _router = buildRouter();
+
+  @override
+  void initState() {
+    super.initState();
+    // (Re)planifie le rappel quotidien au démarrage (persistance post-reboot).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final s = await ref.read(settingsControllerProvider.future);
+      await ref
+          .read(notificationServiceProvider)
+          .apply(enabled: s.remindersEnabled, hhmm: s.reminderTime);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

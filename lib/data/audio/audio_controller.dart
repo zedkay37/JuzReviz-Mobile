@@ -1,4 +1,5 @@
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:juzreviz/data/audio/audio_allowlist.dart';
 import 'package:juzreviz/data/audio/reciters.dart';
 
@@ -28,19 +29,23 @@ class AudioController {
       _player.setSpeed(rate.clamp(0.5, 2.0));
 
   /// Joue un verset : cache local d'abord, sinon streaming (URL allowlistée).
+  /// [title] alimente la notification de lecture en arrière-plan.
   /// Renvoie `false` si l'URL n'est pas autorisée ou la source indisponible.
   Future<bool> playVerse(String reciterId, String verseKey,
-      {double rate = 1.0}) async {
+      {double rate = 1.0, String? title}) async {
     final local = await resolver?.call(reciterId, verseKey);
     final url = verseAudioUrl(reciterId, verseKey);
     if (local == null && !isAllowedAudioUrl(url)) return false;
     _currentVerseKey = verseKey;
     try {
-      if (local != null) {
-        await _player.setFilePath(local);
-      } else {
-        await _player.setUrl(url);
-      }
+      await _player.setAudioSource(AudioSource.uri(
+        local != null ? Uri.file(local) : Uri.parse(url),
+        tag: MediaItem(
+          id: verseKey,
+          title: title ?? 'Verset $verseKey',
+          album: reciterById(reciterId).name,
+        ),
+      ));
       await _player.setSpeed(rate.clamp(0.5, 2.0));
       await _player.play();
       return true;
@@ -54,7 +59,10 @@ class AudioController {
   Future<bool> playUrl(String url, {double rate = 1.0}) async {
     if (!isAllowedAudioUrl(url)) return false;
     try {
-      await _player.setUrl(url);
+      await _player.setAudioSource(AudioSource.uri(
+        Uri.parse(url),
+        tag: const MediaItem(id: 'word', title: 'Mot', album: 'JuzReviz'),
+      ));
       await _player.setSpeed(rate.clamp(0.5, 2.0));
       await _player.play();
       return true;

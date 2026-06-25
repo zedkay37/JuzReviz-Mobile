@@ -9,6 +9,7 @@ import 'package:juzreviz/data/mastery/mastery_state.dart';
 import 'package:juzreviz/data/mushaf/mushaf_font_store.dart';
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 import 'package:juzreviz/data/mushaf/mushaf_repository.dart';
+import 'package:juzreviz/data/notifications/notification_service.dart';
 import 'package:juzreviz/data/playlists/playlist.dart';
 import 'package:juzreviz/data/playlists/playlists_repository.dart';
 import 'package:juzreviz/data/settings/settings.dart';
@@ -134,6 +135,9 @@ class DownloadsController extends Notifier<DownloadsState> {
 
 final tafsirRepositoryProvider =
     Provider<TafsirRepository>((ref) => TafsirRepository());
+
+final notificationServiceProvider =
+    Provider<NotificationService>((ref) => NotificationService());
 
 // --- Moushaf (pages QPC embarquées + pack de polices téléchargeable) ---
 

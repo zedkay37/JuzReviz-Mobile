@@ -237,7 +237,12 @@ class RevisionPage extends ConsumerWidget {
               SwitchRow(
                 title: 'Rappels de révision',
                 value: s.remindersEnabled,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(remindersEnabled: v)),
+                onChanged: (v) {
+                  _edit(ref, (p) => p.copyWith(remindersEnabled: v));
+                  ref
+                      .read(notificationServiceProvider)
+                      .apply(enabled: v, hhmm: s.reminderTime);
+                },
               ),
               if (s.remindersEnabled)
                 _ReminderTimeRow(time: s.reminderTime),
@@ -273,6 +278,9 @@ class _ReminderTimeRow extends ConsumerWidget {
         final hh = picked.hour.toString().padLeft(2, '0');
         final mm = picked.minute.toString().padLeft(2, '0');
         _edit(ref, (p) => p.copyWith(reminderTime: '$hh:$mm'));
+        ref
+            .read(notificationServiceProvider)
+            .apply(enabled: true, hhmm: '$hh:$mm');
       },
     );
   }
