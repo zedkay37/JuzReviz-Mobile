@@ -34,3 +34,8 @@ flutter:
     - assets/tafsir/fr/
     - assets/tafsir/en/
     - assets/mushaf/pages.json
+
+  fonts:
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/AmiriQuran-Regular.ttf

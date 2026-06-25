@@ -497,7 +497,8 @@ class AboutPage extends StatelessWidget {
                 title: Text('Sources & attributions', style: TextStyle(color: t.ink)),
                 subtitle: Text(
                     'Texte uthmani : Tanzil.net. Gloses, traductions & tafsir : '
-                    'corpus word-by-word (CC BY-NC).',
+                    'corpus word-by-word (CC BY-NC). Police arabe : Amiri Quran '
+                    '(SIL OFL). Mushaf : polices QCF (KFGQPC).',
                     style: TextStyle(color: t.inkSoft)),
               ),
               ListTile(

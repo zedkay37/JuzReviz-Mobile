@@ -25,7 +25,11 @@ class AyahSeal extends StatelessWidget {
         ),
         child: Text(
           latin ? '$ayah' : toArabicDigits(ayah),
-          style: TextStyle(color: t.accent, fontSize: size * 0.42),
+          style: TextStyle(
+            color: t.accent,
+            fontSize: size * 0.42,
+            fontFamily: latin ? null : t.arabicFamily,
+          ),
         ),
       ),
     );

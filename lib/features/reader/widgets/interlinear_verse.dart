@@ -184,7 +184,7 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
                 style: TextStyle(
                   fontFamily: t.arabicFamily,
                   fontSize: w.isWaqf ? widget.fontSize * 0.6 : widget.fontSize,
-                  height: 1.25,
+                  height: 1.45,
                   color: highlighted ? t.accent : t.ink,
                 ),
               ),

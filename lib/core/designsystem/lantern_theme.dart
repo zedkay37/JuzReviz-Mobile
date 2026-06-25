@@ -54,7 +54,7 @@ const _lanterneTokens = LanternTokens(
   stale: _heatStale,
   blank: _heatBlank,
   scar: Color(0xFFBA7517),
-  arabicFamily: null,
+  arabicFamily: 'AmiriQuran',
 );
 
 // Rawda — re-dérivé : surfaces noires teintées vert très sombre, même or.
@@ -76,7 +76,7 @@ const _rawdaTokens = LanternTokens(
   stale: _heatStale,
   blank: _heatBlank,
   scar: Color(0xFFBA7517),
-  arabicFamily: null,
+  arabicFamily: 'AmiriQuran',
 );
 
 // Parchemin — clair : crème, encre brune, or foncé. accentInk crème sur or sombre.
@@ -98,7 +98,7 @@ const _parcheminTokens = LanternTokens(
   stale: Color(0xFF7C5E37),
   blank: Color(0xFFC9BFA8),
   scar: Color(0xFFB5662A),
-  arabicFamily: null,
+  arabicFamily: 'AmiriQuran',
 );
 
 // Contraste élevé — noir pur, or vif, encre blanche.
@@ -120,7 +120,7 @@ const _highContrastTokens = LanternTokens(
   stale: Color(0xFFB89A6A),
   blank: Color(0xFF4A4A4A),
   scar: Color(0xFFFF9E40),
-  arabicFamily: null,
+  arabicFamily: 'AmiriQuran',
 );
 
 LanternTokens tokensFor(AppTheme theme) => switch (theme) {
