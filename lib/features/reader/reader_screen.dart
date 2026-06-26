@@ -39,7 +39,11 @@ typedef _ReaderConfig = ({
 });
 
 class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, required this.selection, this.autoPlay = false});
+  const ReaderScreen({
+    super.key,
+    required this.selection,
+    this.autoPlay = false,
+  });
   final Selection selection;
 
   /// Démarre la lecture audio dès l'ouverture (lancement depuis Réciter).
@@ -145,12 +149,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (_loopAyah && _activeKey != null) {
       ref
           .read(audioControllerProvider)
-          .playVerse(settings.reciter, _activeKey!, rate: settings.playbackRate);
+          .playVerse(
+            settings.reciter,
+            _activeKey!,
+            rate: settings.playbackRate,
+          );
       return;
     }
     final finished = _ptr >= 0 && _ptr < _plan.length ? _plan[_ptr] : null;
     final isLastOccurrence =
-        finished != null && (_ptr + 1 >= _plan.length || _plan[_ptr + 1] != finished);
+        finished != null &&
+        (_ptr + 1 >= _plan.length || _plan[_ptr + 1] != finished);
     if (settings.autoMaster && finished != null && isLastOccurrence) {
       ref.read(masteryControllerProvider.notifier).markMastered(finished);
     }
@@ -168,7 +177,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     } else {
       // Fin de sourate → enchaîne sur la suivante (façon concurrent).
       final surah = _currentSurah;
-      final atSurahEnd = _verses.isNotEmpty && finished == _verses.last.verseKey;
+      final atSurahEnd =
+          _verses.isNotEmpty && finished == _verses.last.verseKey;
       if (surah != null && surah < 114 && atSurahEnd) {
         _goToSurah(surah + 1, autoPlay: true);
         return;
@@ -185,8 +195,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
     final keys = _verses.sublist(verseIndex).map((v) => v.verseKey).toList();
-    _plan = expandPlayback(keys, settings.repeatMode,
-        repeatCount: settings.repeatCount, rangeCount: settings.rangeCount);
+    _plan = expandPlayback(
+      keys,
+      settings.repeatMode,
+      repeatCount: settings.repeatCount,
+      rangeCount: settings.rangeCount,
+    );
     if (_plan.isEmpty) return;
     await _playAt(0, settings);
   }
@@ -200,8 +214,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     });
     _scrollToKey(key, settings);
     final audio = ref.read(audioControllerProvider);
-    final ok = await audio.playVerse(settings.reciter, key,
-        rate: settings.playbackRate);
+    final ok = await audio.playVerse(
+      settings.reciter,
+      key,
+      rate: settings.playbackRate,
+    );
     if (!mounted) return;
     if (!ok) {
       setState(() {
@@ -223,7 +240,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       duration: LanternMotion.medium,
       curve: LanternMotion.emphasized,
       alignment: scrollAlignmentFor(
-          settings.scrollTempo, settings.scrollTempoStrength),
+        settings.scrollTempo,
+        settings.scrollTempoStrength,
+      ),
     );
   }
 
@@ -252,8 +271,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child:
-                    Text(_readableTitle(), overflow: TextOverflow.ellipsis),
+                child: Text(_readableTitle(), overflow: TextOverflow.ellipsis),
               ),
               const Icon(Icons.expand_more, size: 20),
             ],
@@ -275,9 +293,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           onPressed: prev == null ? null : () => _gotoSelectionSurah(prev),
         ),
         Flexible(
-          child: Text(_surahName(cur),
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 18)),
+          child: Text(
+            _surahName(cur),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 18),
+          ),
         ),
         IconButton(
           visualDensity: VisualDensity.compact,
@@ -367,7 +387,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final first = indices.reduce((a, b) => a < b ? a : b);
     final last = indices.reduce((a, b) => a > b ? a : b);
     final span = (last - first) < 1 ? 1 : (last - first);
-    final target = (delta > 0 ? last : first - span).clamp(0, _verses.length - 1);
+    final target = (delta > 0 ? last : first - span).clamp(
+      0,
+      _verses.length - 1,
+    );
     _scroll.scrollTo(
       index: target,
       alignment: 0.02,
@@ -382,7 +405,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     HapticFeedback.selectionClick();
     final ok = await ref
         .read(audioControllerProvider)
-        .playUrl(wordAudioUrl(v.verseKey, position), rate: settings.playbackRate);
+        .playUrl(
+          wordAudioUrl(v.verseKey, position),
+          rate: settings.playbackRate,
+        );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Audio du mot indisponible.')),
@@ -420,34 +446,46 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final cfg = ref.watch(settingsControllerProvider.select((s) {
-      final v = s.valueOrNull ?? const Settings();
-      // Mot-à-mot et traduction sont des réglages directs (ajustables depuis le
-      // menu verset). La disposition n'est qu'un préréglage de ces deux-là.
-      return (
-        wbw: v.readerWordByWord,
-        trans: v.readerTranslation,
-        glossLang: v.glossLang,
-        transLang: v.translationLang,
-        latin: v.latinAyahNumbers,
-        veil: v.veilMode,
-        veilWords: v.veilWords,
-        focus: v.focusMode,
-        wordAudio: v.wordAudio,
-        fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
-      );
-    }));
+    final cfg = ref.watch(
+      settingsControllerProvider.select((s) {
+        final v = s.valueOrNull ?? const Settings();
+        // Mot-à-mot et traduction sont des réglages directs (ajustables depuis le
+        // menu verset). La disposition n'est qu'un préréglage de ces deux-là.
+        return (
+          wbw: v.readerWordByWord,
+          trans: v.readerTranslation,
+          glossLang: v.glossLang,
+          transLang: v.translationLang,
+          latin: v.latinAyahNumbers,
+          veil: v.veilMode,
+          veilWords: v.veilWords,
+          focus: v.focusMode,
+          wordAudio: v.wordAudio,
+          fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
+        );
+      }),
+    );
     final versesAsync = ref.watch(readerVersesProvider(_selection));
-    final ambient = ref.watch(settingsControllerProvider
-        .select((s) => (s.valueOrNull ?? const Settings()).ambientDecor));
+    final ambient = ref.watch(
+      settingsControllerProvider.select(
+        (s) => (s.valueOrNull ?? const Settings()).ambientDecor,
+      ),
+    );
     final focus = _focus || cfg.focus;
-    final layout = ref.watch(settingsControllerProvider.select((s) =>
-        readerLayoutFromString((s.valueOrNull ?? const Settings()).readerLayout)));
+    final layout = ref.watch(
+      settingsControllerProvider.select(
+        (s) => readerLayoutFromString(
+          (s.valueOrNull ?? const Settings()).readerLayout,
+        ),
+      ),
+    );
     final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
-    final useMushaf = mushafReady &&
+    final useMushaf =
+        mushafReady &&
         (layout == ReaderLayout.mushafMadni ||
             layout == ReaderLayout.mushafTajweed);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return LanternScaffold(
       safeArea: false,
@@ -551,18 +589,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       // Lecture : aucune mécanique audio visible, sauf un stop
                       // discret quand une écoute ponctuelle est en cours.
                       : (_playing || _ptr >= 0)
-                          ? _StopBar(
-                              playing: _playing,
-                              onPlayPause: _togglePlay,
-                              onStop: _stopAudio,
-                            )
-                          : _ReadingNavBar(
-                              focusOn: focus,
-                              onToggleFocus: () =>
-                                  setState(() => _focus = !focus),
-                              onPrev: () => _scrollSet(-1),
-                              onNext: () => _scrollSet(1),
-                            ),
+                      ? _StopBar(
+                          playing: _playing,
+                          onPlayPause: _togglePlay,
+                          onStop: _stopAudio,
+                        )
+                      : _ReadingNavBar(
+                          focusOn: focus,
+                          onToggleFocus: () => setState(() => _focus = !focus),
+                          onPrev: () => _scrollSet(-1),
+                          onNext: () => _scrollSet(1),
+                        ),
                 ),
               ),
           ],
@@ -574,7 +611,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   void _resolveResume(List<Verse> verses) {
     if (_resumeResolved) return;
     final s = ref.read(settingsControllerProvider).valueOrNull;
-    if (s == null) return; // réessaie au prochain build (settings pas encore prêt)
+    if (s == null) {
+      return; // réessaie au prochain build (settings pas encore prêt)
+    }
     _resumeResolved = true;
     final rk = s.currentVerseKey;
     if (rk.isEmpty) return;
@@ -597,7 +636,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final ayah = key.split(':').last;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
+        LanternSpace.md,
+        LanternSpace.sm,
+        LanternSpace.md,
+        0,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: ActionChip(
@@ -605,7 +648,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           label: Text('Reprendre · verset $ayah'),
           onPressed: () {
             _dismissResume();
-            final settings = ref.read(settingsControllerProvider).valueOrNull ??
+            final settings =
+                ref.read(settingsControllerProvider).valueOrNull ??
                 const Settings();
             _scrollToKey(key, settings);
           },
@@ -620,7 +664,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Lecture adaptative : largeur de colonne bornée sur tablette/paysage.
-        final maxWidth = constraints.maxWidth > 720.0 ? 720.0 : constraints.maxWidth;
+        final maxWidth = constraints.maxWidth > 720.0
+            ? 720.0
+            : constraints.maxWidth;
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
@@ -628,7 +674,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               itemScrollController: _scroll,
               itemPositionsListener: _positions,
               initialScrollIndex: 0,
-              padding: const EdgeInsets.only(top: LanternSpace.sm, bottom: 130),
+              padding: const EdgeInsets.only(top: LanternSpace.md, bottom: 150),
               itemCount: verses.length + _lead,
               itemBuilder: (context, i) {
                 if (_lead == 1 && i == 0) {
@@ -651,7 +697,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     fontSize: cfg.fontSize,
                     active: _activeKey == v.verseKey,
                     // Tap sur un mot = audio de prononciation du mot.
-                    onWordTap: selecting ? null : (pos) => _playWordAudio(v, pos),
+                    onWordTap: selecting
+                        ? null
+                        : (pos) => _playWordAudio(v, pos),
                     onLongPress: selecting ? null : () => _capture(v),
                   ),
                 );
@@ -661,9 +709,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   onTap: () => _endRange(v.verseKey),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: inRange
-                          ? t.accent.withValues(alpha: 0.08)
-                          : null,
+                      color: inRange ? t.accent.withValues(alpha: 0.08) : null,
                       border: Border(
                         left: BorderSide(
                           color: inRange ? t.accent : Colors.transparent,
@@ -764,14 +810,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _repeatRange(int startIndex, int endIndex) async {
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
-    final keys =
-        _verses.sublist(startIndex, endIndex + 1).map((v) => v.verseKey).toList();
-    _plan = expandPlayback(keys, AudioRepeatMode.range,
-        rangeCount: settings.rangeCount.clamp(2, 99));
+    final keys = _verses
+        .sublist(startIndex, endIndex + 1)
+        .map((v) => v.verseKey)
+        .toList();
+    _plan = expandPlayback(
+      keys,
+      AudioRepeatMode.range,
+      rangeCount: settings.rangeCount.clamp(2, 99),
+    );
     if (_plan.isEmpty) return;
     await _playAt(0, settings);
   }
-
 }
 
 /// En-tête de sourate (titre calligraphié + basmallah) au début d'une sourate.
@@ -791,12 +841,18 @@ class _SurahHeaderBox extends ConsumerWidget {
     final showBasmalah = surah != 1 && surah != 9;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
+        LanternSpace.lg,
+        LanternSpace.md,
+        LanternSpace.lg,
+        LanternSpace.sm,
+      ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: 10),
+              horizontal: LanternSpace.lg,
+              vertical: 16,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(LanternSpace.radius),
               border: Border.all(color: t.accent.withValues(alpha: 0.55)),
@@ -807,28 +863,40 @@ class _SurahHeaderBox extends ConsumerWidget {
                   'سورة ${meta.arabicName}',
                   textDirection: TextDirection.rtl,
                   style: TextStyle(
-                      color: t.accent,
-                      fontSize: 20,
-                      fontFamily: t.arabicFamily),
+                    color: t.accent,
+                    fontSize: 24,
+                    height: 1.35,
+                    fontFamily: t.arabicFamily,
+                  ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 6),
                 Text(
                   '${meta.transliteration} · '
                   '${meta.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}'
                   ' · ${meta.ayahCount} versets',
-                  style: TextStyle(color: t.inkSoft, fontSize: 12),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: t.inkSoft,
+                    fontSize: 13,
+                    height: 1.25,
+                  ),
                 ),
               ],
             ),
           ),
           if (showBasmalah)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.fromLTRB(8, 24, 8, 18),
               child: Text(
                 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+                textAlign: TextAlign.center,
                 textDirection: TextDirection.rtl,
                 style: TextStyle(
-                    color: t.ink, fontSize: 22, fontFamily: t.arabicFamily),
+                  color: t.ink,
+                  fontSize: 26,
+                  height: 1.55,
+                  fontFamily: t.arabicFamily,
+                ),
               ),
             ),
         ],
@@ -860,7 +928,10 @@ class _StopBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: t.surfaceHigh),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 18),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 18,
+            ),
           ],
         ),
         child: Row(
@@ -868,8 +939,11 @@ class _StopBar extends StatelessWidget {
           children: [
             IconButton(
               tooltip: playing ? 'Pause' : 'Reprendre',
-              icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
-                  color: t.accent, size: 32),
+              icon: Icon(
+                playing ? Icons.pause_circle : Icons.play_circle,
+                color: t.accent,
+                size: 32,
+              ),
               onPressed: onPlayPause,
             ),
             const SizedBox(width: 4),
@@ -911,7 +985,10 @@ class _ReadingNavBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: t.surfaceHigh),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 18),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 18,
+            ),
           ],
         ),
         child: Row(
@@ -919,8 +996,9 @@ class _ReadingNavBar extends StatelessWidget {
             TextButton.icon(
               onPressed: onToggleFocus,
               icon: Icon(
-                  focusOn ? Icons.fullscreen_exit : Icons.center_focus_strong,
-                  size: 20),
+                focusOn ? Icons.fullscreen_exit : Icons.center_focus_strong,
+                size: 20,
+              ),
               label: Text(focusOn ? 'Quitter' : 'Focus'),
               style: TextButton.styleFrom(foregroundColor: t.inkSoft),
             ),
@@ -932,9 +1010,10 @@ class _ReadingNavBar extends StatelessWidget {
             ),
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                  backgroundColor: t.accent,
-                  foregroundColor: t.accentInk,
-                  visualDensity: VisualDensity.compact),
+                backgroundColor: t.accent,
+                foregroundColor: t.accentInk,
+                visualDensity: VisualDensity.compact,
+              ),
               onPressed: onNext,
               icon: const Icon(Icons.keyboard_arrow_down, size: 20),
               label: const Text('Suivant'),
@@ -956,8 +1035,15 @@ class _SelectionBanner extends StatelessWidget {
     final t = context.lantern;
     return Container(
       margin: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.sm, LanternSpace.md, 0),
-      padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md, vertical: 10),
+        LanternSpace.md,
+        LanternSpace.sm,
+        LanternSpace.md,
+        0,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: LanternSpace.md,
+        vertical: 10,
+      ),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(LanternSpace.radius),
@@ -968,8 +1054,10 @@ class _SelectionBanner extends StatelessWidget {
           Icon(Icons.touch_app, color: t.accent, size: 20),
           const SizedBox(width: LanternSpace.sm),
           Expanded(
-            child: Text('Tapez le verset de fin',
-                style: TextStyle(color: t.ink, fontSize: 14)),
+            child: Text(
+              'Tapez le verset de fin',
+              style: TextStyle(color: t.ink, fontSize: 14),
+            ),
           ),
           TextButton(onPressed: onCancel, child: const Text('Annuler')),
         ],
@@ -995,17 +1083,18 @@ class _AudioBar extends StatelessWidget {
   final bool loopOn;
   final VoidCallback onToggleLoop;
 
-  Widget _barIcon(IconData icon,
-          {required Color color,
-          required VoidCallback onPressed,
-          required String tooltip,
-          double size = 24}) =>
-      IconButton(
-        visualDensity: VisualDensity.compact,
-        tooltip: tooltip,
-        icon: Icon(icon, color: color, size: size),
-        onPressed: onPressed,
-      );
+  Widget _barIcon(
+    IconData icon, {
+    required Color color,
+    required VoidCallback onPressed,
+    required String tooltip,
+    double size = 24,
+  }) => IconButton(
+    visualDensity: VisualDensity.compact,
+    tooltip: tooltip,
+    icon: Icon(icon, color: color, size: size),
+    onPressed: onPressed,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1013,40 +1102,60 @@ class _AudioBar extends StatelessWidget {
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(LanternSpace.md),
-        padding:
-            const EdgeInsets.symmetric(horizontal: LanternSpace.sm, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: LanternSpace.sm,
+          vertical: 6,
+        ),
         decoration: BoxDecoration(
           color: t.surface,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: t.surfaceHigh),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 18),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 18,
+            ),
           ],
         ),
         child: Row(
           children: [
             const Spacer(),
-            _barIcon(Icons.skip_previous,
-                color: t.inkSoft, onPressed: onPrevAyah, tooltip: 'Âyah précédente'),
+            _barIcon(
+              Icons.skip_previous,
+              color: t.inkSoft,
+              onPressed: onPrevAyah,
+              tooltip: 'Âyah précédente',
+            ),
             const SizedBox(width: 4),
             IconButton(
               tooltip: playing ? 'Pause' : 'Lecture',
-              icon: Icon(playing ? Icons.pause_circle : Icons.play_circle,
-                  color: t.accent, size: 40),
+              icon: Icon(
+                playing ? Icons.pause_circle : Icons.play_circle,
+                color: t.accent,
+                size: 40,
+              ),
               onPressed: onPlayPause,
             ),
             const SizedBox(width: 4),
-            _barIcon(Icons.skip_next,
-                color: t.inkSoft, onPressed: onNextAyah, tooltip: 'Âyah suivante'),
+            _barIcon(
+              Icons.skip_next,
+              color: t.inkSoft,
+              onPressed: onNextAyah,
+              tooltip: 'Âyah suivante',
+            ),
             const Spacer(),
-            _barIcon(Icons.repeat_one,
-                color: loopOn ? t.accent : t.inkSoft,
-                onPressed: onToggleLoop,
-                tooltip: 'Boucler l’âyah'),
-            _barIcon(Icons.tune,
-                color: t.inkSoft,
-                onPressed: () => showPlaybackParams(context),
-                tooltip: 'Paramètres de lecture'),
+            _barIcon(
+              Icons.repeat_one,
+              color: loopOn ? t.accent : t.inkSoft,
+              onPressed: onToggleLoop,
+              tooltip: 'Boucler l’âyah',
+            ),
+            _barIcon(
+              Icons.tune,
+              color: t.inkSoft,
+              onPressed: () => showPlaybackParams(context),
+              tooltip: 'Paramètres de lecture',
+            ),
           ],
         ),
       ),

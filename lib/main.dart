@@ -45,12 +45,20 @@ class _JuzRevizAppState extends ConsumerState<JuzRevizApp> {
   void initState() {
     super.initState();
     // (Re)planifie le rappel quotidien au démarrage (persistance post-reboot).
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_syncReminderSettings());
+    });
+  }
+
+  Future<void> _syncReminderSettings() async {
+    try {
       final s = await ref.read(settingsControllerProvider.future);
       await ref
           .read(notificationServiceProvider)
           .apply(enabled: s.remindersEnabled, hhmm: s.reminderTime);
-    });
+    } catch (_) {
+      // Startup must stay independent from local notification state.
+    }
   }
 
   @override

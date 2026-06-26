@@ -34,59 +34,90 @@ class NotificationService {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     await _plugin.initialize(
-        const InitializationSettings(android: android, iOS: ios));
+      const InitializationSettings(android: android, iOS: ios),
+    );
     _ready = true;
   }
 
   /// Demande les autorisations (Android 13+, iOS). Renvoie `true` si accordé.
   Future<bool> requestPermissions() async {
-    await init();
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    final granted = await android?.requestNotificationsPermission();
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    await ios?.requestPermissions(alert: true, badge: true, sound: true);
-    return granted ?? true;
+    try {
+      await init();
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      final granted = await android?.requestNotificationsPermission();
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      await ios?.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Planifie un rappel quotidien à `hh:mm` (répétition par l'heure).
   Future<void> scheduleDaily(int hour, int minute) async {
     await init();
-    await _plugin.cancel(_reminderId);
+    await _cancelReminderIfPossible();
     final now = tz.TZDateTime.now(tz.local);
-    var when =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
-    await _plugin.zonedSchedule(
-      _reminderId,
-      'JuzReviz',
-      'C’est l’heure de ta révision 🌙',
-      when,
-      _details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+    var when = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
     );
+    if (!when.isAfter(now)) when = when.add(const Duration(days: 1));
+    try {
+      await _plugin.zonedSchedule(
+        _reminderId,
+        'JuzReviz',
+        'C’est l’heure de ta révision 🌙',
+        when,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (_) {
+      // A broken Android notification cache must not block app startup.
+    }
   }
 
   Future<void> cancelReminder() async {
     await init();
-    await _plugin.cancel(_reminderId);
+    await _cancelReminderIfPossible();
   }
 
   /// Applique l'état des réglages (`HH:MM`, activé/désactivé).
   Future<void> apply({required bool enabled, required String hhmm}) async {
-    if (!enabled) {
-      await cancelReminder();
-      return;
+    try {
+      if (!enabled) {
+        await cancelReminder();
+        return;
+      }
+      final granted = await requestPermissions();
+      if (!granted) return;
+      final parts = hhmm.split(':');
+      final h = int.tryParse(parts.first) ?? 8;
+      final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+      await scheduleDaily(h, m);
+    } catch (_) {
+      // Reminders are helpful, but they are not allowed to crash the app.
     }
-    final granted = await requestPermissions();
-    if (!granted) return;
-    final parts = hhmm.split(':');
-    final h = int.tryParse(parts.first) ?? 8;
-    final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-    await scheduleDaily(h, m);
+  }
+
+  Future<void> _cancelReminderIfPossible() async {
+    try {
+      await _plugin.cancel(_reminderId);
+    } catch (_) {
+      // FlutterLocalNotifications can fail on stale native scheduled caches.
+    }
   }
 }
