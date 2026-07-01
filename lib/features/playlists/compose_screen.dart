@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/common/plural.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
+import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/components/prompt_dialog.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
-import 'package:juzreviz/data/audio/audio_cache.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
@@ -24,29 +24,25 @@ class ComposeScreen extends ConsumerStatefulWidget {
 }
 
 class _ComposeScreenState extends ConsumerState<ComposeScreen> {
-  final Set<int> _surahs = {};
+  /// Sourate → plage (from, to). Plage entière = (1, ayahCount).
+  final Map<int, (int, int)> _surahs = {};
   final Set<int> _juz = {};
 
   int get _count => _surahs.length + _juz.length;
 
   List<Selection> _selections() => [
-        for (final n in _surahs.toList()..sort())
-          _surahSel(n),
+        for (final n in _surahs.keys.toList()..sort())
+          SelSurah(n, _surahs[n]!.$1, _surahs[n]!.$2),
         for (final j in _juz.toList()..sort()) SelJuz(j),
       ];
 
-  Selection _surahSel(int n) {
-    final metas = ref.read(surahMetasProvider).valueOrNull;
-    final count = metas?.where((m) => m.number == n).firstOrNull?.ayahCount ?? 1;
-    return SelSurah(n, 1, count);
-  }
-
   List<String> _allKeys(List<SurahMeta> metas) {
     final keys = <String>[];
-    final byNum = {for (final m in metas) m.number: m};
-    for (final n in _surahs.toList()..sort()) {
-      final m = byNum[n];
-      if (m != null) keys.addAll(surahVerseKeys(n, m.ayahCount));
+    for (final n in _surahs.keys.toList()..sort()) {
+      final (from, to) = _surahs[n]!;
+      for (var a = from; a <= to; a++) {
+        keys.add('$n:$a');
+      }
     }
     for (final j in _juz.toList()..sort()) {
       keys.addAll(juzVerseKeys(j, metas));
@@ -63,11 +59,15 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
 
   String _label(List<SurahMeta> metas) {
     if (_surahs.isNotEmpty) {
-      final first = (_surahs.toList()..sort()).first;
+      final first = (_surahs.keys.toList()..sort()).first;
       final name =
           metas.where((m) => m.number == first).firstOrNull?.transliteration ??
               'Sourate $first';
-      return _surahs.length > 1 ? '$name +${_surahs.length - 1}' : name;
+      final (from, to) = _surahs[first]!;
+      final meta = metas.where((m) => m.number == first).firstOrNull;
+      final range =
+          meta != null && (from != 1 || to != meta.ayahCount) ? ' $from–$to' : '';
+      return _surahs.length > 1 ? '$name$range +${_surahs.length - 1}' : '$name$range';
     }
     if (_juz.isNotEmpty) {
       final j = (_juz.toList()..sort()).first;
@@ -119,8 +119,19 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
           data: (metas) => TabBarView(
             children: [
               ListView.builder(
-                itemCount: metas.length,
-                itemBuilder: (_, i) => _surahTile(t, metas[i]),
+                itemCount: metas.length + 1,
+                itemBuilder: (_, i) {
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                      child: Text(
+                        'Astuce : appui long sur une sourate pour choisir une plage précise.',
+                        style: TextStyle(color: t.inkFaint, fontSize: 12),
+                      ),
+                    );
+                  }
+                  return _surahTile(t, metas[i - 1]);
+                },
               ),
               ListView.builder(
                 itemCount: 30,
@@ -143,23 +154,47 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   }
 
   Widget _surahTile(LanternTokens t, SurahMeta m) {
-    final on = _surahs.contains(m.number);
+    final range = _surahs[m.number];
+    final on = range != null;
+    final isPartial = on && (range.$1 != 1 || range.$2 != m.ayahCount);
     return ListTile(
       onTap: () => setState(() {
         HapticFeedback.selectionClick();
         _juz.clear(); // sélection non-cumulative : sourates OU juz
-        on ? _surahs.remove(m.number) : _surahs.add(m.number);
+        on ? _surahs.remove(m.number) : _surahs[m.number] = (1, m.ayahCount);
       }),
+      onLongPress: () => _pickRange(m),
       leading: _badge(t, '${m.number}', on),
       title: Text(m.transliteration, style: TextStyle(color: t.ink)),
       subtitle: Text(
-          '${m.ayahCount} versets · ${m.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}',
-          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+          isPartial
+              ? 'Plage : ${range.$1}–${range.$2}'
+              : '${m.ayahCount} versets · ${m.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}',
+          style: TextStyle(
+              color: isPartial ? t.accent : t.inkSoft, fontSize: 12)),
       trailing: Text(m.arabicName,
           textDirection: TextDirection.rtl,
           style: TextStyle(
               color: t.inkSoft, fontSize: 18, fontFamily: t.arabicFamily)),
     );
+  }
+
+  Future<void> _pickRange(SurahMeta m) async {
+    final current = _surahs[m.number];
+    final picked = await showLanternSheet<(int, int)>(
+      context,
+      builder: (_) => _SurahRangeSheet(
+        meta: m,
+        initialFrom: current?.$1 ?? 1,
+        initialTo: current?.$2 ?? m.ayahCount,
+      ),
+    );
+    if (picked == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _juz.clear();
+      _surahs[m.number] = picked;
+    });
   }
 
   Widget _juzTile(LanternTokens t, int juz) {
@@ -181,4 +216,118 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
             ? Icon(Icons.check, color: t.accentInk, size: 20)
             : Text(label, style: TextStyle(color: t.accent, fontSize: 13)),
       );
+}
+
+/// Feuille « De / à » : borne une sourate sur une plage d'âyât précise.
+class _SurahRangeSheet extends StatefulWidget {
+  const _SurahRangeSheet({
+    required this.meta,
+    required this.initialFrom,
+    required this.initialTo,
+  });
+  final SurahMeta meta;
+  final int initialFrom;
+  final int initialTo;
+
+  @override
+  State<_SurahRangeSheet> createState() => _SurahRangeSheetState();
+}
+
+class _SurahRangeSheetState extends State<_SurahRangeSheet> {
+  late int _from = widget.initialFrom;
+  late int _to = widget.initialTo;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    final max = widget.meta.ayahCount;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Plage — ${widget.meta.transliteration}',
+          style: TextStyle(
+              color: t.ink, fontSize: 17, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 2),
+        Text('$max versets', style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        const SizedBox(height: 18),
+        _stepperRow(
+          t,
+          'De l’âyah',
+          _from,
+          onMinus: () => setState(() {
+            if (_from > 1) _from--;
+          }),
+          onPlus: () => setState(() {
+            if (_from < _to) _from++;
+          }),
+        ),
+        const SizedBox(height: 8),
+        _stepperRow(
+          t,
+          'À l’âyah',
+          _to,
+          onMinus: () => setState(() {
+            if (_to > _from) _to--;
+          }),
+          onPlus: () => setState(() {
+            if (_to < max) _to++;
+          }),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop((1, max)),
+                child: const Text('Sourate entière'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop((_from, _to)),
+                child: const Text('Valider'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _stepperRow(
+    LanternTokens t,
+    String label,
+    int value, {
+    required VoidCallback onMinus,
+    required VoidCallback onPlus,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label, style: TextStyle(color: t.inkSoft, fontSize: 14)),
+        ),
+        IconButton(
+          onPressed: onMinus,
+          icon: const Icon(Icons.remove_circle_outline),
+        ),
+        SizedBox(
+          width: 48,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: t.ink, fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+        ),
+        IconButton(
+          onPressed: onPlus,
+          icon: const Icon(Icons.add_circle_outline),
+        ),
+      ],
+    );
+  }
 }

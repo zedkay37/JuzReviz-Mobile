@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
               NavCard(
                 icon: Icons.sync_alt,
                 title: 'Données',
-                subtitle: 'Export / import de l’état de révision',
+                subtitle: 'Téléchargements hors-ligne, export et sauvegarde',
                 onTap: () => context.push('/profile/data'),
               ),
               NavCard(

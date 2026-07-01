@@ -135,14 +135,11 @@ class ReadingPage extends ConsumerWidget {
                     _edit(ref, (p) => p.copyWith(latinAyahNumbers: v)),
               ),
               SwitchRow(
-                title: 'Couleurs tajwid',
-                value: s.tajweedColors,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(tajweedColors: v)),
-              ),
-              SwitchRow(
                 title: 'Audio-mot',
-                subtitle: 'Toucher un mot le récite',
+                subtitle: s.readerWordByWord
+                    ? 'Toucher un mot le récite'
+                    : 'Nécessite le mot-à-mot',
+                enabled: s.readerWordByWord,
                 value: s.wordAudio,
                 onChanged: (v) => _edit(ref, (p) => p.copyWith(wordAudio: v)),
               ),

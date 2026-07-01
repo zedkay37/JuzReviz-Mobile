@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
+import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/components/review_banner.dart';
 import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
@@ -499,13 +500,26 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               title: _buildTitle(),
               actions: _recitation
                   ? [
-                      IconButton(
-                        tooltip: 'Paramètres de lecture',
-                        icon: const Icon(Icons.tune),
-                        onPressed: () => showPlaybackParams(context),
-                      ),
+                      if (_ayahPosition() case final pos?)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _AyahPositionButton(
+                            ayah: pos.$1,
+                            total: pos.$2,
+                            onTap: () => _showAyahJump(context),
+                          ),
+                        ),
                     ]
                   : [
+                      if (_ayahPosition() case final pos?)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _AyahPositionButton(
+                            ayah: pos.$1,
+                            total: pos.$2,
+                            onTap: () => _showAyahJump(context),
+                          ),
+                        ),
                       IconButton(
                         tooltip: 'Disposition',
                         icon: const Icon(Icons.view_day_outlined),
@@ -694,6 +708,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           active: _activeKey == v.verseKey,
                           latinAyahNumbers: cfg.latin,
                           lang: cfg.lang,
+                          showTranslation: cfg.trans,
                           onLongPress: () => _capture(v),
                         )
                       : InterlinearVerse(
@@ -706,8 +721,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           veilWords: cfg.veilWords,
                           fontSize: cfg.fontSize,
                           active: _activeKey == v.verseKey,
-                          // Tap sur un mot = audio de prononciation du mot.
-                          onWordTap: selecting
+                          // Tap sur un mot = audio de prononciation du mot
+                          // (réglage « Audio-mot » explicite).
+                          onWordTap: selecting || !cfg.wordAudio
                               ? null
                               : (pos) => _playWordAudio(v, pos),
                           onLongPress: selecting ? null : () => _capture(v),
@@ -803,6 +819,52 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       onPlayFrom: ia >= 0 ? () => _startFrom(ia) : null,
       onRepeat: (ia >= 0 && ib >= 0) ? () => _repeatRange(ia, ib) : null,
     );
+  }
+
+  /// Position (âyah courante, dernière âyah de la même sourate) pour le
+  /// bouton de saut rapide en mode Réciter.
+  (int, int)? _ayahPosition() {
+    if (_verses.isEmpty) return null;
+    final idx = (_activeKey != null
+            ? _verses.indexWhere((v) => v.verseKey == _activeKey)
+            : _firstVisibleIndex())
+        .clamp(0, _verses.length - 1);
+    final v = _verses[idx];
+    final last = _verses.lastWhere((x) => x.surah == v.surah, orElse: () => v);
+    return (v.ayah, last.ayah);
+  }
+
+  /// Feuille discrète : glisser pour sauter à une âyah de la sourate en cours.
+  Future<void> _showAyahJump(BuildContext context) async {
+    if (_verses.isEmpty) return;
+    final curIdx = (_activeKey != null
+            ? _verses.indexWhere((v) => v.verseKey == _activeKey)
+            : _firstVisibleIndex())
+        .clamp(0, _verses.length - 1);
+    final surah = _verses[curIdx].surah;
+    final indices = [
+      for (var i = 0; i < _verses.length; i++)
+        if (_verses[i].surah == surah) i,
+    ];
+    if (indices.length < 2) return;
+    final picked = await showLanternSheet<int>(
+      context,
+      builder: (_) => _AyahJumpSheet(
+        verses: _verses,
+        indices: indices,
+        initialIndex: curIdx,
+      ),
+    );
+    if (picked == null) return;
+    if (_recitation) {
+      // Réciter : sauter = reprendre l'écoute à partir de là.
+      await _startFrom(picked);
+    } else {
+      // Coran : sauter = simple défilement, sans déclencher l'audio.
+      final settings =
+          ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
+      _scrollToKey(_verses[picked].verseKey, settings);
+    }
   }
 
   /// Navigue d'une âyah (audio) : ±1 puis joue à partir de là.
@@ -923,6 +985,7 @@ class _RecitationVerseTile extends StatelessWidget {
     required this.active,
     required this.latinAyahNumbers,
     required this.lang,
+    required this.showTranslation,
     this.onLongPress,
   });
 
@@ -930,12 +993,14 @@ class _RecitationVerseTile extends StatelessWidget {
   final bool active;
   final bool latinAyahNumbers;
   final String lang;
+  final bool showTranslation;
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
     final translation = verse.translation(lang);
+    final showTrans = active && showTranslation && translation.isNotEmpty;
     return GestureDetector(
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
@@ -956,6 +1021,15 @@ class _RecitationVerseTile extends StatelessWidget {
           border: active
               ? Border.all(color: t.accent.withValues(alpha: 0.5))
               : null,
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: t.accent.withValues(alpha: 0.16),
+                    blurRadius: 28,
+                    spreadRadius: -6,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -965,38 +1039,146 @@ class _RecitationVerseTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Text(
-                    verse.arabic,
+                  child: AnimatedDefaultTextStyle(
+                    duration: LanternMotion.medium,
+                    curve: LanternMotion.emphasized,
                     textAlign: TextAlign.center,
-                    textDirection: TextDirection.rtl,
                     style: TextStyle(
                       fontFamily: t.arabicFamily,
                       fontSize: active ? 32 : 22,
                       height: 1.9,
                       color: active ? t.ink : t.inkSoft,
                     ),
+                    child: Text(verse.arabic, textDirection: TextDirection.rtl),
                   ),
                 ),
                 const SizedBox(width: LanternSpace.sm),
-                AyahSeal(
-                  ayah: verse.ayah,
-                  latin: latinAyahNumbers,
-                  size: active ? 30 : 22,
+                AnimatedScale(
+                  duration: LanternMotion.medium,
+                  curve: LanternMotion.emphasized,
+                  scale: active ? 1.0 : 0.74,
+                  child: AyahSeal(ayah: verse.ayah, latin: latinAyahNumbers, size: 30),
                 ),
               ],
             ),
-            if (active && translation.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: LanternSpace.md),
-                child: Text(
-                  translation,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: t.inkSoft, fontSize: 15, height: 1.4),
-                ),
-              ),
+            AnimatedSwitcher(
+              duration: LanternMotion.medium,
+              child: !showTrans
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      key: ValueKey(verse.verseKey),
+                      padding: const EdgeInsets.only(top: LanternSpace.md),
+                      child: Text(
+                        translation,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: t.inkSoft,
+                          fontSize: 15,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pastille « 13 / 120 » — position dans la sourate, tap = saut rapide.
+class _AyahPositionButton extends StatelessWidget {
+  const _AyahPositionButton({
+    required this.ayah,
+    required this.total,
+    required this.onTap,
+  });
+  final int ayah;
+  final int total;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Material(
+      color: t.surfaceHigh,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          child: Text(
+            '$ayah / $total',
+            style: TextStyle(
+              color: t.ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Feuille de saut rapide : un curseur, relâcher = navigue et referme.
+class _AyahJumpSheet extends StatefulWidget {
+  const _AyahJumpSheet({
+    required this.verses,
+    required this.indices,
+    required this.initialIndex,
+  });
+  final List<Verse> verses;
+  final List<int> indices;
+  final int initialIndex;
+
+  @override
+  State<_AyahJumpSheet> createState() => _AyahJumpSheetState();
+}
+
+class _AyahJumpSheetState extends State<_AyahJumpSheet> {
+  late double _pos = widget.indices
+      .indexOf(widget.initialIndex)
+      .clamp(0, widget.indices.length - 1)
+      .toDouble();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    final verse = widget.verses[widget.indices[_pos.round()]];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'ALLER À L’ÂYAH',
+          style: TextStyle(
+            color: t.inkFaint,
+            fontSize: 11,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '${verse.ayah}',
+          style: TextStyle(
+            color: t.accent,
+            fontSize: 40,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Slider(
+          value: _pos,
+          min: 0,
+          max: (widget.indices.length - 1).toDouble(),
+          divisions: widget.indices.length - 1,
+          activeColor: t.accent,
+          onChanged: (v) => setState(() => _pos = v),
+          onChangeEnd: (v) =>
+              Navigator.of(context).pop(widget.indices[v.round()]),
+        ),
+      ],
     );
   }
 }

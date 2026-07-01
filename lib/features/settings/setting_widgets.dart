@@ -142,27 +142,35 @@ class SwitchRow extends StatelessWidget {
     required this.onChanged,
     this.subtitle,
     this.icon,
+    this.enabled = true,
   });
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
   final String? subtitle;
   final IconData? icon;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return SwitchListTile(
-      value: value,
-      onChanged: (v) {
-        HapticFeedback.selectionClick();
-        onChanged(v);
-      },
-      secondary: icon == null ? null : Icon(icon, color: t.inkSoft),
-      title: Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
-      subtitle: subtitle == null
-          ? null
-          : Text(subtitle!, style: TextStyle(color: t.inkSoft, fontSize: 12)),
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: SwitchListTile(
+        value: value,
+        onChanged: !enabled
+            ? null
+            : (v) {
+                HapticFeedback.selectionClick();
+                onChanged(v);
+              },
+        secondary: icon == null ? null : Icon(icon, color: t.inkSoft),
+        title: Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
+        subtitle: subtitle == null
+            ? null
+            : Text(subtitle!,
+                style: TextStyle(color: t.inkSoft, fontSize: 12)),
+      ),
     );
   }
 }

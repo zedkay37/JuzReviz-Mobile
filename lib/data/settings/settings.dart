@@ -61,7 +61,6 @@ class Settings {
     this.contentLang = 'fr',
     this.readerWordByWord = true,
     this.readerTranslation = true,
-    this.tajweedColors = false,
     this.latinAyahNumbers = false,
     this.wordAudio = false,
     this.scrollTempo = ScrollTempo.sync,
@@ -104,7 +103,6 @@ class Settings {
       contentLang: asS('contentLang', def.contentLang),
       readerWordByWord: asB('readerWordByWord', def.readerWordByWord),
       readerTranslation: asB('readerTranslation', def.readerTranslation),
-      tajweedColors: asB('tajweedColors', def.tajweedColors),
       latinAyahNumbers: asB('latinAyahNumbers', def.latinAyahNumbers),
       wordAudio: asB('wordAudio', def.wordAudio),
       scrollTempo:
@@ -144,7 +142,6 @@ class Settings {
   final String contentLang;
   final bool readerWordByWord;
   final bool readerTranslation;
-  final bool tajweedColors;
   final bool latinAyahNumbers;
   final bool wordAudio;
   final ScrollTempo scrollTempo;
@@ -179,7 +176,6 @@ class Settings {
         'contentLang': contentLang,
         'readerWordByWord': readerWordByWord,
         'readerTranslation': readerTranslation,
-        'tajweedColors': tajweedColors,
         'latinAyahNumbers': latinAyahNumbers,
         'wordAudio': wordAudio,
         'scrollTempo': scrollTempo.name,
@@ -215,7 +211,6 @@ class Settings {
     String? contentLang,
     bool? readerWordByWord,
     bool? readerTranslation,
-    bool? tajweedColors,
     bool? latinAyahNumbers,
     bool? wordAudio,
     ScrollTempo? scrollTempo,
@@ -250,7 +245,6 @@ class Settings {
         contentLang: contentLang ?? this.contentLang,
         readerWordByWord: readerWordByWord ?? this.readerWordByWord,
         readerTranslation: readerTranslation ?? this.readerTranslation,
-        tajweedColors: tajweedColors ?? this.tajweedColors,
         latinAyahNumbers: latinAyahNumbers ?? this.latinAyahNumbers,
         wordAudio: wordAudio ?? this.wordAudio,
         scrollTempo: scrollTempo ?? this.scrollTempo,
