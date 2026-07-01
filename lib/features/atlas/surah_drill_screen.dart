@@ -64,9 +64,8 @@ class SurahDrillScreen extends ConsumerWidget {
               final m = mastery?.mastered[key];
               final state =
                   verseHeatState(f, m, settings.masteryProfile, now);
-              final flag = verseFlag(f, m);
               final scarred =
-                  flag.scarred || (mastery?.scarred.contains(key) ?? false);
+                  hasImplicitScar(f, m) || (mastery?.scarred.contains(key) ?? false);
               return HeatCell(
                 ayah: ayah,
                 state: state,

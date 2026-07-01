@@ -20,8 +20,9 @@ List<SurahHeatTile> buildAtlasHeat(
   // Sourates cicatrisées : maîtrisé avec count > 0 (O(mastered)).
   final scarredSurahs = <int>{};
   for (final key in mastered.keys) {
-    final flag = verseFlag(fragile[key], mastered[key]);
-    if (flag.scarred) scarredSurahs.add(int.parse(key.split(':')[0]));
+    if (hasImplicitScar(fragile[key], mastered[key])) {
+      scarredSurahs.add(int.parse(key.split(':')[0]));
+    }
   }
   return metas
       .map((m) => SurahHeatTile(

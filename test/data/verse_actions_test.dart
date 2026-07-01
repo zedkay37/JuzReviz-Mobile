@@ -84,8 +84,7 @@ void main() {
     expect(c.read(masteryControllerProvider).value!.scarred, isEmpty);
   });
 
-  test('verseFlag reste pur (parité inchangée)', () {
-    final flag = verseFlag(null, Mastered(1000));
-    expect(flag.scarred, isFalse);
+  test('hasImplicitScar reste pur (parité inchangée)', () {
+    expect(hasImplicitScar(null, Mastered(1000)), isFalse);
   });
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/domain/model/selection.dart';
-import 'package:juzreviz/features/atlas/atlas_screen.dart';
 import 'package:juzreviz/features/atlas/surah_drill_screen.dart';
 import 'package:juzreviz/features/playlists/compose_screen.dart';
 import 'package:juzreviz/features/playlists/playlist_detail_screen.dart';
@@ -11,6 +10,7 @@ import 'package:juzreviz/features/program/program_screen.dart';
 import 'package:juzreviz/features/program/session_screen.dart';
 import 'package:juzreviz/features/reader/reader_home.dart';
 import 'package:juzreviz/features/reader/reader_screen.dart';
+import 'package:juzreviz/features/reader/recitation_screen.dart';
 import 'package:juzreviz/features/settings/downloads_page.dart';
 import 'package:juzreviz/features/settings/settings_pages.dart';
 import 'package:juzreviz/features/settings/settings_screen.dart';
@@ -34,20 +34,19 @@ GoRouter buildRouter() => GoRouter(
           builder: (context, state, shell) => _ShellScaffold(shell: shell),
           branches: [
             StatefulShellBranch(routes: [
-              GoRoute(path: '/', builder: (_, _) => const ReaderHome()),
+              GoRoute(path: '/', builder: (_, _) => const ProgramScreen()),
+            ]),
+            StatefulShellBranch(routes: [
+              GoRoute(path: '/coran', builder: (_, _) => const QuranScreen()),
             ]),
             StatefulShellBranch(routes: [
               GoRoute(path: '/reciter', builder: (_, _) => const ComposeScreen()),
-            ]),
-            StatefulShellBranch(routes: [
-              GoRoute(path: '/atlas', builder: (_, _) => const AtlasScreen()),
             ]),
             StatefulShellBranch(routes: [
               GoRoute(path: '/profile', builder: (_, _) => const SettingsScreen()),
             ]),
           ],
         ),
-        GoRoute(path: '/program', builder: (_, _) => const ProgramScreen()),
         GoRoute(
             path: '/playlists', builder: (_, _) => const PlaylistsScreen()),
         GoRoute(
@@ -70,7 +69,13 @@ GoRouter buildRouter() => GoRouter(
           builder: (ctx, st) => ReaderScreen(
             selection: st.extra as Selection? ??
                 _selectionFromQuery(st.uri.queryParameters, const SelSurah(1, 1, 7)),
-            autoPlay: st.uri.queryParameters['play'] == '1',
+          ),
+        ),
+        GoRoute(
+          path: '/recite',
+          builder: (ctx, st) => RecitationScreen(
+            selection: st.extra as Selection? ??
+                _selectionFromQuery(st.uri.queryParameters, const SelSurah(1, 1, 7)),
           ),
         ),
         GoRoute(
@@ -110,17 +115,17 @@ class _ShellScaffold extends StatelessWidget {
             shell.goBranch(i, initialLocation: i == shell.currentIndex),
         destinations: const [
           NavigationDestination(
+              icon: Icon(Icons.local_fire_department_outlined),
+              selectedIcon: Icon(Icons.local_fire_department),
+              label: 'Aujourd’hui'),
+          NavigationDestination(
               icon: Icon(Icons.menu_book_outlined),
               selectedIcon: Icon(Icons.menu_book),
-              label: 'Lire'),
+              label: 'Coran'),
           NavigationDestination(
               icon: Icon(Icons.graphic_eq),
               selectedIcon: Icon(Icons.graphic_eq),
               label: 'Réciter'),
-          NavigationDestination(
-              icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view),
-              label: 'Atlas'),
           NavigationDestination(
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),

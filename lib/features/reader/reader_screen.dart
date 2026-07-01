@@ -22,14 +22,17 @@ import 'package:juzreviz/features/reader/mushaf_view.dart';
 import 'package:juzreviz/features/reader/reader_layout_sheet.dart';
 import 'package:juzreviz/features/reader/reader_playback_sheet.dart';
 import 'package:juzreviz/features/reader/reader_providers.dart';
+import 'package:juzreviz/features/reader/widgets/ayah_seal.dart';
 import 'package:juzreviz/features/reader/widgets/interlinear_verse.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+
+/// Étude silencieuse (Coran, mot-à-mot) vs récitation (Réciter, écoute karaoké).
+enum ReaderMode { study, recitation }
 
 typedef _ReaderConfig = ({
   bool wbw,
   bool trans,
-  String glossLang,
-  String transLang,
+  String lang,
   bool latin,
   VeilMode veil,
   int veilWords,
@@ -42,12 +45,12 @@ class ReaderScreen extends ConsumerStatefulWidget {
   const ReaderScreen({
     super.key,
     required this.selection,
-    this.autoPlay = false,
+    this.mode = ReaderMode.study,
   });
   final Selection selection;
 
-  /// Démarre la lecture audio dès l'ouverture (lancement depuis Réciter).
-  final bool autoPlay;
+  /// Étude silencieuse ou récitation (audio + karaoké dès l'ouverture).
+  final ReaderMode mode;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -98,7 +101,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
-    _autoPlayPending = widget.autoPlay;
+    _autoPlayPending = widget.mode == ReaderMode.recitation;
     _positions.itemPositions.addListener(_onScrollPositions);
     _procSub = ref
         .read(audioControllerProvider)
@@ -345,7 +348,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   /// Mode récitation (audio mis en avant) vs lecture (contrôles de défilement).
-  bool get _recitation => widget.autoPlay;
+  bool get _recitation => widget.mode == ReaderMode.recitation;
 
   /// Sourates distinctes présentes dans la sélection (ordre de lecture).
   List<int> _distinctSurahs() {
@@ -454,8 +457,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         return (
           wbw: v.readerWordByWord,
           trans: v.readerTranslation,
-          glossLang: v.glossLang,
-          transLang: v.translationLang,
+          lang: v.contentLang,
           latin: v.latinAyahNumbers,
           veil: v.veilMode,
           veilWords: v.veilWords,
@@ -481,6 +483,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
     final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
     final useMushaf =
+        !_recitation &&
         mushafReady &&
         (layout == ReaderLayout.mushafMadni ||
             layout == ReaderLayout.mushafTajweed);
@@ -494,19 +497,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           : AppBar(
               titleSpacing: 8,
               title: _buildTitle(),
-              actions: [
-                IconButton(
-                  tooltip: 'Disposition',
-                  icon: const Icon(Icons.view_day_outlined),
-                  onPressed: () => showReaderLayout(context),
-                ),
-                IconButton(
-                  tooltip: 'Focus',
-                  icon: const Icon(Icons.center_focus_strong),
-                  onPressed: () => setState(() => _focus = true),
-                ),
-              ],
+              actions: _recitation
+                  ? [
+                      IconButton(
+                        tooltip: 'Paramètres de lecture',
+                        icon: const Icon(Icons.tune),
+                        onPressed: () => showPlaybackParams(context),
+                      ),
+                    ]
+                  : [
+                      IconButton(
+                        tooltip: 'Disposition',
+                        icon: const Icon(Icons.view_day_outlined),
+                        onPressed: () => showReaderLayout(context),
+                      ),
+                      IconButton(
+                        tooltip: 'Focus',
+                        icon: const Icon(Icons.center_focus_strong),
+                        onPressed: () => setState(() => _focus = true),
+                      ),
+                    ],
             ),
+      bottomNavigationBar: useMushaf ? null : _bottomBar(focus),
       body: GestureDetector(
         onTap: () => setState(() => _chromeVisible = !_chromeVisible),
         child: Stack(
@@ -536,7 +548,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     );
                   }
                   _resolveResume(verses);
-                  if (focus) return _buildList(verses, cfg);
+                  if (focus || _recitation) return _buildList(verses, cfg);
                   final selecting = _rangeStart != null;
                   return Column(
                     children: [
@@ -565,46 +577,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                 ),
               ),
-            // Mushaf : navigation propre (pages). Sinon : récitation = barre audio,
-            // lecture = contrôles de défilement (pas d'audio).
-            if (!useMushaf)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: AnimatedSlide(
-                  offset: _chromeVisible ? Offset.zero : const Offset(0, 1.4),
-                  duration: reduceMotion ? Duration.zero : LanternMotion.medium,
-                  curve: LanternMotion.emphasized,
-                  child: _recitation
-                      ? _AudioBar(
-                          playing: _playing,
-                          onPlayPause: _togglePlay,
-                          onPrevAyah: () => _stepAyah(-1),
-                          onNextAyah: () => _stepAyah(1),
-                          loopOn: _loopAyah,
-                          onToggleLoop: () =>
-                              setState(() => _loopAyah = !_loopAyah),
-                        )
-                      // Lecture : aucune mécanique audio visible, sauf un stop
-                      // discret quand une écoute ponctuelle est en cours.
-                      : (_playing || _ptr >= 0)
-                      ? _StopBar(
-                          playing: _playing,
-                          onPlayPause: _togglePlay,
-                          onStop: _stopAudio,
-                        )
-                      : _ReadingNavBar(
-                          focusOn: focus,
-                          onToggleFocus: () => setState(() => _focus = !focus),
-                          onPrev: () => _scrollSet(-1),
-                          onNext: () => _scrollSet(1),
-                        ),
-                ),
-              ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Barre du bas, en vraie zone de Scaffold (jamais superposée au contenu).
+  /// Récitation = transport audio ; lecture = défilement (+ stop ponctuel).
+  Widget _bottomBar(bool focus) {
+    if (_recitation) {
+      return _AudioBar(
+        playing: _playing,
+        onPlayPause: _togglePlay,
+        onPrevAyah: () => _stepAyah(-1),
+        onNextAyah: () => _stepAyah(1),
+        loopOn: _loopAyah,
+        onToggleLoop: () => setState(() => _loopAyah = !_loopAyah),
+      );
+    }
+    if (_playing || _ptr >= 0) {
+      return _StopBar(
+        playing: _playing,
+        onPlayPause: _togglePlay,
+        onStop: _stopAudio,
+      );
+    }
+    return _ReadingNavBar(
+      focusOn: focus,
+      onToggleFocus: () => setState(() => _focus = !focus),
+      onPrev: () => _scrollSet(-1),
+      onNext: () => _scrollSet(1),
     );
   }
 
@@ -674,7 +677,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               itemScrollController: _scroll,
               itemPositionsListener: _positions,
               initialScrollIndex: 0,
-              padding: const EdgeInsets.only(top: LanternSpace.md, bottom: 150),
+              padding: const EdgeInsets.symmetric(vertical: LanternSpace.lg),
               itemCount: verses.length + _lead,
               itemBuilder: (context, i) {
                 if (_lead == 1 && i == 0) {
@@ -685,23 +688,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 final selecting = _rangeStart != null;
                 final inRange = selecting && _isInPendingRange(v.verseKey);
                 final tile = RepaintBoundary(
-                  child: InterlinearVerse(
-                    verse: v,
-                    wordByWord: cfg.wbw,
-                    showTranslation: cfg.trans,
-                    glossLang: cfg.glossLang,
-                    translationLang: cfg.transLang,
-                    latinAyahNumbers: cfg.latin,
-                    veilMode: cfg.veil,
-                    veilWords: cfg.veilWords,
-                    fontSize: cfg.fontSize,
-                    active: _activeKey == v.verseKey,
-                    // Tap sur un mot = audio de prononciation du mot.
-                    onWordTap: selecting
-                        ? null
-                        : (pos) => _playWordAudio(v, pos),
-                    onLongPress: selecting ? null : () => _capture(v),
-                  ),
+                  child: _recitation
+                      ? _RecitationVerseTile(
+                          verse: v,
+                          active: _activeKey == v.verseKey,
+                          latinAyahNumbers: cfg.latin,
+                          lang: cfg.lang,
+                          onLongPress: () => _capture(v),
+                        )
+                      : InterlinearVerse(
+                          verse: v,
+                          wordByWord: cfg.wbw,
+                          showTranslation: cfg.trans,
+                          lang: cfg.lang,
+                          latinAyahNumbers: cfg.latin,
+                          veilMode: cfg.veil,
+                          veilWords: cfg.veilWords,
+                          fontSize: cfg.fontSize,
+                          active: _activeKey == v.verseKey,
+                          // Tap sur un mot = audio de prononciation du mot.
+                          onWordTap: selecting
+                              ? null
+                              : (pos) => _playWordAudio(v, pos),
+                          onLongPress: selecting ? null : () => _capture(v),
+                        ),
                 );
                 if (!selecting) return tile;
                 // Mode sélection de plage : tap = borne de fin.
@@ -900,6 +910,92 @@ class _SurahHeaderBox extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Verset en mode Réciter : arabe seul en grand, surlignage « karaoké » du
+/// verset en cours, traduction affichée seulement pour le verset actif.
+class _RecitationVerseTile extends StatelessWidget {
+  const _RecitationVerseTile({
+    required this.verse,
+    required this.active,
+    required this.latinAyahNumbers,
+    required this.lang,
+    this.onLongPress,
+  });
+
+  final Verse verse;
+  final bool active;
+  final bool latinAyahNumbers;
+  final String lang;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    final translation = verse.translation(lang);
+    return GestureDetector(
+      onLongPress: onLongPress,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: LanternMotion.medium,
+        curve: LanternMotion.emphasized,
+        margin: const EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: LanternSpace.lg,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: LanternSpace.md,
+          vertical: LanternSpace.lg,
+        ),
+        decoration: BoxDecoration(
+          color: active ? t.surfaceHigh : null,
+          borderRadius: BorderRadius.circular(LanternSpace.radius),
+          border: active
+              ? Border.all(color: t.accent.withValues(alpha: 0.5))
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              textDirection: TextDirection.rtl,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    verse.arabic,
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontFamily: t.arabicFamily,
+                      fontSize: active ? 32 : 22,
+                      height: 1.9,
+                      color: active ? t.ink : t.inkSoft,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: LanternSpace.sm),
+                AyahSeal(
+                  ayah: verse.ayah,
+                  latin: latinAyahNumbers,
+                  size: active ? 30 : 22,
+                ),
+              ],
+            ),
+            if (active && translation.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: LanternSpace.md),
+                child: Text(
+                  translation,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: t.inkSoft, fontSize: 15, height: 1.4),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

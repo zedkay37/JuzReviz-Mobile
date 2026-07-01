@@ -47,13 +47,10 @@ class VerseActionSheet extends ConsumerWidget {
     final t = context.lantern;
     final mastery = ref.watch(masteryControllerProvider).valueOrNull;
     final manualScar = mastery?.scarred.contains(verseKey) ?? false;
-    final derivedScar = mastery == null
+    final implicitScar = mastery == null
         ? false
-        : verseFlag(
-            mastery.fragile[verseKey],
-            mastery.mastered[verseKey],
-          ).scarred;
-    final scarred = manualScar || derivedScar;
+        : hasImplicitScar(mastery.fragile[verseKey], mastery.mastered[verseKey]);
+    final scarred = manualScar || implicitScar;
     final settings =
         ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
     final sctrl = ref.read(settingsControllerProvider.notifier);

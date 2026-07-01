@@ -26,7 +26,7 @@ class TafsirPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
     final lang = ref.watch(settingsControllerProvider
-        .select((s) => (s.valueOrNull ?? const Settings()).tafsirLanguage));
+        .select((s) => (s.valueOrNull ?? const Settings()).contentLang));
     final normLang = lang == 'en' ? 'en' : 'fr';
     final tafsirAsync =
         ref.watch(verseTafsirProvider((lang: normLang, verseKey: verseKey)));
@@ -98,6 +98,7 @@ class TafsirPanel extends ConsumerWidget {
   }
 }
 
+/// Bascule FR/EN — pilote la langue unique (gloses, traduction, tafsir).
 class _LangToggle extends ConsumerWidget {
   const _LangToggle({required this.current, required this.ink, required this.accent});
   final String current;
@@ -111,7 +112,7 @@ class _LangToggle extends ConsumerWidget {
       return GestureDetector(
         onTap: () => ref
             .read(settingsControllerProvider.notifier)
-            .edit((p) => p.copyWith(tafsirLanguage: code)),
+            .edit((p) => p.copyWith(contentLang: code)),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(

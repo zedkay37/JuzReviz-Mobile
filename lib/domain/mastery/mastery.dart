@@ -73,30 +73,14 @@ HeatState verseHeatState(
       : _decayState(mastered.masteredAtMs, profile, now, count);
 }
 
-/// État « net » + cicatrice (difficulté résiduelle sous maîtrise).
-class VerseFlag {
-  const VerseFlag(this.state, this.scarred, this.failureCount);
-  final FlagState state;
-  final bool scarred;
-  final int failureCount;
-}
-
-VerseFlag verseFlag(Fragile? fragile, Mastered? mastered) {
-  final count = fragile?.count ?? 0;
-  if (fragile == null && mastered == null) {
-    return const VerseFlag(FlagState.blank, false, 0);
-  }
-  final FlagState state;
-  if (fragile != null && mastered == null) {
-    state = FlagState.fragile;
-  } else if (mastered != null && fragile == null) {
-    state = FlagState.mastered;
-  } else if (fragile!.markedAtMs > mastered!.masteredAtMs) {
-    state = FlagState.fragile;
-  } else {
-    state = FlagState.mastered;
-  }
-  return VerseFlag(state, state == FlagState.mastered && count > 0, count);
+/// Cicatrice implicite : le verset est aujourd'hui maîtrisé (non fragile)
+/// mais a déjà connu un échec par le passé. Combinée en display avec la
+/// cicatrice manuelle (`MasteryState.scarred`) — les deux sont des métadonnées
+/// d'historique, pas un état de mémorisation à part entière.
+bool hasImplicitScar(Fragile? fragile, Mastered? mastered) {
+  if (mastered == null) return false;
+  if ((fragile?.count ?? 0) == 0) return false;
+  return fragile == null || mastered.masteredAtMs >= fragile.markedAtMs;
 }
 
 const Map<HeatState, int> stateUrgency = {

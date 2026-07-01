@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:juzreviz/data/playlists/playlist.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/features/settings/setting_widgets.dart';
+import 'package:path_provider/path_provider.dart';
 
 Settings _s(WidgetRef ref) =>
     ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
@@ -107,13 +109,6 @@ class ReadingPage extends ConsumerWidget {
                 onChanged: (v) =>
                     _edit(ref, (p) => p.copyWith(readerWordByWord: v)),
               ),
-              ChoiceRow<String>(
-                title: 'Langue des gloses',
-                enabled: s.readerWordByWord,
-                value: s.glossLang == 'en' ? 'en' : 'fr',
-                options: langs,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(glossLang: v)),
-              ),
               SwitchRow(
                 title: 'Traduction',
                 value: s.readerTranslation,
@@ -121,19 +116,11 @@ class ReadingPage extends ConsumerWidget {
                     _edit(ref, (p) => p.copyWith(readerTranslation: v)),
               ),
               ChoiceRow<String>(
-                title: 'Langue de traduction',
-                enabled: s.readerTranslation,
-                value: s.translationLang == 'en' ? 'en' : 'fr',
+                title: 'Langue',
+                subtitle: 'Gloses, traduction et tafsir',
+                value: s.contentLang == 'en' ? 'en' : 'fr',
                 options: langs,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(translationLang: v)),
-              ),
-              ChoiceRow<String>(
-                title: 'Langue du tafsir',
-                value: s.tafsirLanguage == 'en' ? 'en' : 'fr',
-                options: langs,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(tafsirLanguage: v)),
+                onChanged: (v) => _edit(ref, (p) => p.copyWith(contentLang: v)),
               ),
             ],
           ),
@@ -397,13 +384,13 @@ class DataPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.upload_file),
                 title: const Text('Exporter l’état de révision'),
-                subtitle: const Text('Copié dans le presse-papiers (JSON)'),
+                subtitle: const Text('Fichier de sauvegarde (+ presse-papiers)'),
                 onTap: () => _export(context, ref),
               ),
               ListTile(
                 leading: const Icon(Icons.download),
                 title: const Text('Importer'),
-                subtitle: const Text('Fusion non destructive'),
+                subtitle: const Text('Depuis le fichier de sauvegarde, ou coller un JSON'),
                 onTap: () => _import(context, ref),
               ),
             ],
@@ -411,6 +398,11 @@ class DataPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<String> _backupPath() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/juzreviz_backup.json';
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
@@ -424,13 +416,15 @@ class DataPage extends ConsumerWidget {
       'mastery': mastery.toJson(),
       'playlists': playlists.map((p) => p.toJson()).toList(),
     });
+    final path = await _backupPath();
+    await File(path).writeAsString(payload);
     await Clipboard.setData(ClipboardData(text: payload));
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Export copié'),
-        content: SingleChildScrollView(child: SelectableText(payload)),
+        title: const Text('Export enregistré'),
+        content: Text('Fichier : $path\n\nAussi copié dans le presse-papiers.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -442,10 +436,45 @@ class DataPage extends ConsumerWidget {
   }
 
   Future<void> _import(BuildContext context, WidgetRef ref) async {
-    final raw = await showDialog<String>(
-      context: context,
-      builder: (ctx) => const _ImportDialog(),
-    );
+    final backupFile = File(await _backupPath());
+    final exists = await backupFile.exists();
+    if (!context.mounted) return;
+    String? raw;
+    if (exists) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Importer'),
+          content: Text('Fichier de sauvegarde trouvé :\n${backupFile.path}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'paste'),
+              child: const Text('Coller un JSON…'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'file'),
+              child: const Text('Importer ce fichier'),
+            ),
+          ],
+        ),
+      );
+      if (choice == 'file') {
+        raw = await backupFile.readAsString();
+      } else if (choice == 'paste') {
+        if (!context.mounted) return;
+        raw = await showDialog<String>(
+          context: context,
+          builder: (ctx) => const _ImportDialog(),
+        );
+      } else {
+        return;
+      }
+    } else {
+      raw = await showDialog<String>(
+        context: context,
+        builder: (ctx) => const _ImportDialog(),
+      );
+    }
     if (raw == null || raw.trim().isEmpty) return;
     try {
       final map = (jsonDecode(raw) as Map).cast<String, dynamic>();

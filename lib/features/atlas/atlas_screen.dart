@@ -13,14 +13,16 @@ import 'package:juzreviz/domain/usecase/atlas_heat.dart';
 
 enum _RevFilter { all, meccan, medinan }
 
-class AtlasScreen extends ConsumerStatefulWidget {
-  const AtlasScreen({super.key});
+/// Vue « carte de chaleur » du Coran — embarquée dans l'onglet Coran
+/// (bascule liste/grille), plus utilisée comme écran plein-page.
+class AtlasGridView extends ConsumerStatefulWidget {
+  const AtlasGridView({super.key});
 
   @override
-  ConsumerState<AtlasScreen> createState() => _AtlasScreenState();
+  ConsumerState<AtlasGridView> createState() => _AtlasGridViewState();
 }
 
-class _AtlasScreenState extends ConsumerState<AtlasScreen> {
+class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
   _RevFilter _rev = _RevFilter.all;
   bool _memorizedOnly = false;
   String _query = '';
@@ -32,52 +34,49 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
             ?.memorizedSurahs ??
         const <int>{};
 
-    return LanternScaffold(
-      appBar: AppBar(title: const Text('Atlas')),
-      body: Column(
-        children: [
-          const ReviewBanner(),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
-            child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Sourate, numéro, translittération…',
-              ),
-              onChanged: (v) => setState(() => _query = v),
+    return Column(
+      children: [
+        const ReviewBanner(),
+        Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+          child: TextField(
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Sourate, numéro, translittération…',
             ),
+            onChanged: (v) => setState(() => _query = v),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
-            child: Row(
-              children: [
-                _chip('Toutes', _rev == _RevFilter.all,
-                    () => setState(() => _rev = _RevFilter.all)),
-                _chip('Mecquoises', _rev == _RevFilter.meccan,
-                    () => setState(() => _rev = _RevFilter.meccan)),
-                _chip('Médinoises', _rev == _RevFilter.medinan,
-                    () => setState(() => _rev = _RevFilter.medinan)),
-                const SizedBox(width: 12),
-                _chip('Mémorisées', _memorizedOnly,
-                    () => setState(() => _memorizedOnly = !_memorizedOnly)),
-              ],
-            ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
+          child: Row(
+            children: [
+              _chip('Toutes', _rev == _RevFilter.all,
+                  () => setState(() => _rev = _RevFilter.all)),
+              _chip('Mecquoises', _rev == _RevFilter.meccan,
+                  () => setState(() => _rev = _RevFilter.meccan)),
+              _chip('Médinoises', _rev == _RevFilter.medinan,
+                  () => setState(() => _rev = _RevFilter.medinan)),
+              const SizedBox(width: 12),
+              _chip('Mémorisées', _memorizedOnly,
+                  () => setState(() => _memorizedOnly = !_memorizedOnly)),
+            ],
           ),
-          const _HeatLegend(),
-          Expanded(
-            child: tilesAsync.when(
-              // Anti-flicker : garde la grille pendant les recomputations.
-              skipLoadingOnReload: true,
-              skipLoadingOnRefresh: true,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
-              data: (tiles) => _grid(_filter(tiles, memorized)),
-            ),
+        ),
+        const _HeatLegend(),
+        Expanded(
+          child: tilesAsync.when(
+            // Anti-flicker : garde la grille pendant les recomputations.
+            skipLoadingOnReload: true,
+            skipLoadingOnRefresh: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+            data: (tiles) => _grid(_filter(tiles, memorized)),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

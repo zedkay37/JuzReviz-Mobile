@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:juzreviz/core/designsystem/components/ember_badge.dart';
+import 'package:juzreviz/core/designsystem/components/heat_labels.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/domain/model/enums.dart';

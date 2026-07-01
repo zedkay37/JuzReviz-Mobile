@@ -65,8 +65,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                         showVerseActions(context, verseKey: v.verseKey),
                     wordByWord: settings.readerWordByWord,
                     showTranslation: settings.readerTranslation,
-                    glossLang: settings.glossLang,
-                    translationLang: settings.translationLang,
+                    lang: settings.contentLang,
                     latinAyahNumbers: settings.latinAyahNumbers,
                     // Auto-test : voile actif en session par défaut.
                     veilMode: settings.veilMode == VeilMode.full

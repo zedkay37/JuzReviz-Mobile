@@ -71,7 +71,7 @@ class _JuzRevizAppState extends ConsumerState<JuzRevizApp> {
       debugShowCheckedModeBanner: false,
       theme: buildTheme(theme),
       routerConfig: _router,
-      locale: settings.translationLang == 'en'
+      locale: settings.contentLang == 'en'
           ? const Locale('en')
           : const Locale('fr'),
       supportedLocales: const [Locale('fr'), Locale('en')],

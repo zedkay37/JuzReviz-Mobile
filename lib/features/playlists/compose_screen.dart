@@ -9,7 +9,6 @@ import 'package:juzreviz/core/designsystem/components/prompt_dialog.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/audio_cache.dart';
-import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
@@ -55,16 +54,11 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     return keys;
   }
 
-  Future<void> _read() async {
+  void _read() {
     final metas = ref.read(surahMetasProvider).valueOrNull ?? const [];
     final keys = _allKeys(metas);
     if (keys.isEmpty) return;
-    // Auto-lancement en mode défilant traduit, audio démarré.
-    await ref
-        .read(settingsControllerProvider.notifier)
-        .edit((p) => p.copyWith(readerLayout: ReaderLayout.verseByVerse.id));
-    if (!mounted) return;
-    context.push('/read?play=1', extra: SelReview(_label(metas), keys));
+    context.push('/recite', extra: SelReview(_label(metas), keys));
   }
 
   String _label(List<SurahMeta> metas) {
@@ -141,8 +135,8 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
                 backgroundColor: t.accent,
                 foregroundColor: t.accentInk,
                 onPressed: _read,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Lire'),
+                icon: const Icon(Icons.graphic_eq),
+                label: const Text('Réciter'),
               ),
       ),
     );

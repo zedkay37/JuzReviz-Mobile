@@ -58,9 +58,7 @@ class Settings {
     this.repeatCount = 1,
     this.rangeCount = 1,
     this.repeatPauseMs = 0,
-    this.glossLang = 'fr',
-    this.translationLang = 'fr',
-    this.tafsirLanguage = 'fr',
+    this.contentLang = 'fr',
     this.readerWordByWord = true,
     this.readerTranslation = true,
     this.tajweedColors = false,
@@ -103,9 +101,7 @@ class Settings {
       repeatCount: asI('repeatCount', def.repeatCount).clamp(1, 99),
       rangeCount: asI('rangeCount', def.rangeCount).clamp(1, 99),
       repeatPauseMs: asI('repeatPauseMs', def.repeatPauseMs).clamp(0, 60000),
-      glossLang: asS('glossLang', def.glossLang),
-      translationLang: asS('translationLang', def.translationLang),
-      tafsirLanguage: asS('tafsirLanguage', def.tafsirLanguage),
+      contentLang: asS('contentLang', def.contentLang),
       readerWordByWord: asB('readerWordByWord', def.readerWordByWord),
       readerTranslation: asB('readerTranslation', def.readerTranslation),
       tajweedColors: asB('tajweedColors', def.tajweedColors),
@@ -144,9 +140,8 @@ class Settings {
   final int repeatCount;
   final int rangeCount;
   final int repeatPauseMs;
-  final String glossLang;
-  final String translationLang;
-  final String tafsirLanguage;
+  /// Langue unique pour gloses, traduction et tafsir ('fr' ou 'en').
+  final String contentLang;
   final bool readerWordByWord;
   final bool readerTranslation;
   final bool tajweedColors;
@@ -181,9 +176,7 @@ class Settings {
         'repeatCount': repeatCount,
         'rangeCount': rangeCount,
         'repeatPauseMs': repeatPauseMs,
-        'glossLang': glossLang,
-        'translationLang': translationLang,
-        'tafsirLanguage': tafsirLanguage,
+        'contentLang': contentLang,
         'readerWordByWord': readerWordByWord,
         'readerTranslation': readerTranslation,
         'tajweedColors': tajweedColors,
@@ -219,9 +212,7 @@ class Settings {
     int? repeatCount,
     int? rangeCount,
     int? repeatPauseMs,
-    String? glossLang,
-    String? translationLang,
-    String? tafsirLanguage,
+    String? contentLang,
     bool? readerWordByWord,
     bool? readerTranslation,
     bool? tajweedColors,
@@ -256,9 +247,7 @@ class Settings {
         repeatCount: repeatCount ?? this.repeatCount,
         rangeCount: rangeCount ?? this.rangeCount,
         repeatPauseMs: repeatPauseMs ?? this.repeatPauseMs,
-        glossLang: glossLang ?? this.glossLang,
-        translationLang: translationLang ?? this.translationLang,
-        tafsirLanguage: tafsirLanguage ?? this.tafsirLanguage,
+        contentLang: contentLang ?? this.contentLang,
         readerWordByWord: readerWordByWord ?? this.readerWordByWord,
         readerTranslation: readerTranslation ?? this.readerTranslation,
         tajweedColors: tajweedColors ?? this.tajweedColors,

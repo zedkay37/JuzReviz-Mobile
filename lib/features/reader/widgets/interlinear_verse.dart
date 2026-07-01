@@ -15,8 +15,7 @@ class InterlinearVerse extends StatefulWidget {
     required this.verse,
     this.wordByWord = true,
     this.showTranslation = true,
-    this.glossLang = 'fr',
-    this.translationLang = 'fr',
+    this.lang = 'fr',
     this.latinAyahNumbers = false,
     this.veilMode = VeilMode.full,
     this.veilWords = 3,
@@ -31,8 +30,8 @@ class InterlinearVerse extends StatefulWidget {
   final Verse verse;
   final bool wordByWord;
   final bool showTranslation;
-  final String glossLang;
-  final String translationLang;
+  /// Langue unique des gloses et de la traduction.
+  final String lang;
   final bool latinAyahNumbers;
   final VeilMode veilMode;
   final int veilWords;
@@ -78,7 +77,7 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     final veiled = widget.veilMode != VeilMode.full;
     final useColumns = widget.wordByWord || veiled;
 
-    final translation = widget.verse.translation(widget.translationLang);
+    final translation = widget.verse.translation(widget.lang);
     return Semantics(
       container: true,
       label:
@@ -200,7 +199,7 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
               child: Padding(
                 padding: const EdgeInsets.only(top: 5),
                 child: Text(
-                  w.gloss(widget.glossLang),
+                  w.gloss(widget.lang),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: t.inkSoft,

@@ -69,23 +69,19 @@ void main() {
     });
   });
 
-  group('verseFlag — cicatrice', () {
+  group('hasImplicitScar', () {
     test('maîtrisé avec échecs passés → scarred', () {
-      final flag = verseFlag(Fragile(daysAgo(10), 3), Mastered(daysAgo(2)));
-      expect(flag.state, FlagState.mastered);
-      expect(flag.scarred, isTrue);
-      expect(flag.failureCount, 3);
+      expect(hasImplicitScar(Fragile(daysAgo(10), 3), Mastered(daysAgo(2))),
+          isTrue);
     });
 
     test('maîtrisé sans échec → non scarred', () {
-      final flag = verseFlag(null, Mastered(daysAgo(2)));
-      expect(flag.scarred, isFalse);
+      expect(hasImplicitScar(null, Mastered(daysAgo(2))), isFalse);
     });
 
     test('échec plus récent → fragile, non scarred', () {
-      final flag = verseFlag(Fragile(daysAgo(1), 1), Mastered(daysAgo(5)));
-      expect(flag.state, FlagState.fragile);
-      expect(flag.scarred, isFalse);
+      expect(hasImplicitScar(Fragile(daysAgo(1), 1), Mastered(daysAgo(5))),
+          isFalse);
     });
   });
 

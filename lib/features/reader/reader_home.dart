@@ -10,18 +10,20 @@ import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
+import 'package:juzreviz/features/atlas/atlas_screen.dart';
 
-/// Onglet « Lire » : liste des sourates (façon mushaf), reprise en tête,
+/// Onglet « Coran » : navigateur unifié (liste ou carte de chaleur),
 /// coachmark léger au tout premier lancement. Tap → lecteur.
-class ReaderHome extends ConsumerStatefulWidget {
-  const ReaderHome({super.key});
+class QuranScreen extends ConsumerStatefulWidget {
+  const QuranScreen({super.key});
 
   @override
-  ConsumerState<ReaderHome> createState() => _ReaderHomeState();
+  ConsumerState<QuranScreen> createState() => _QuranScreenState();
 }
 
-class _ReaderHomeState extends ConsumerState<ReaderHome> {
+class _QuranScreenState extends ConsumerState<QuranScreen> {
   bool _coachmarkChecked = false;
+  bool _grid = false;
 
   void _maybeShowCoachmark(Settings s) {
     if (_coachmarkChecked || s.coachmarkSeen) return;
@@ -79,36 +81,55 @@ class _ReaderHomeState extends ConsumerState<ReaderHome> {
   Widget build(BuildContext context) {
     final s =
         ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    _maybeShowCoachmark(s);
+
+    return LanternScaffold(
+      appBar: AppBar(
+        title: const Text('Coran'),
+        actions: [
+          IconButton(
+            tooltip: _grid ? 'Vue liste' : 'Carte de chaleur',
+            icon: Icon(
+                _grid ? Icons.view_list_outlined : Icons.grid_view_outlined),
+            onPressed: () => setState(() => _grid = !_grid),
+          ),
+        ],
+      ),
+      body: _grid ? const AtlasGridView() : _SurahListBody(settings: s),
+    );
+  }
+}
+
+class _SurahListBody extends ConsumerWidget {
+  const _SurahListBody({required this.settings});
+  final Settings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final metasAsync = ref.watch(surahMetasProvider);
     final heat = {
       for (final tile in ref.watch(atlasHeatProvider).valueOrNull ?? const [])
         tile.meta.number: tile.heat.warmth,
     };
-    _maybeShowCoachmark(s);
+    final resumeSurah =
+        int.tryParse(settings.currentVerseKey.split(':').first) ?? 1;
 
-    final resumeSurah = int.tryParse(s.currentVerseKey.split(':').first) ?? 1;
-
-    return LanternScaffold(
-      appBar: AppBar(title: const Text('Lire')),
-      body: metasAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
-        data: (metas) {
-          final resume = metas
-              .where((m) => m.number == resumeSurah)
-              .firstOrNull;
-          return ListView.builder(
-            itemCount: metas.length + (resume != null ? 1 : 0),
-            itemBuilder: (_, i) {
-              if (resume != null && i == 0) {
-                return _ResumeCard(meta: resume, verseKey: s.currentVerseKey);
-              }
-              final m = metas[i - (resume != null ? 1 : 0)];
-              return _SurahRow(meta: m, warmth: heat[m.number] ?? 0);
-            },
-          );
-        },
-      ),
+    return metasAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+      data: (metas) {
+        final resume = metas.where((m) => m.number == resumeSurah).firstOrNull;
+        return ListView.builder(
+          itemCount: metas.length + (resume != null ? 1 : 0),
+          itemBuilder: (_, i) {
+            if (resume != null && i == 0) {
+              return _ResumeCard(meta: resume, verseKey: settings.currentVerseKey);
+            }
+            final m = metas[i - (resume != null ? 1 : 0)];
+            return _SurahRow(meta: m, warmth: heat[m.number] ?? 0);
+          },
+        );
+      },
     );
   }
 }

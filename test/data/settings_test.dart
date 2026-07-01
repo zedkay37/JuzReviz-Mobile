@@ -36,7 +36,7 @@ void main() {
       reciter: 'ar.sudais',
       playbackRate: 1.25,
       repeatMode: AudioRepeatMode.range,
-      glossLang: 'en',
+      contentLang: 'en',
       theme: 'rawda',
       focusMode: true,
     );
@@ -44,7 +44,7 @@ void main() {
     expect(back.reciter, original.reciter);
     expect(back.playbackRate, original.playbackRate);
     expect(back.repeatMode, AudioRepeatMode.range);
-    expect(back.glossLang, 'en');
+    expect(back.contentLang, 'en');
     expect(back.theme, 'rawda');
     expect(back.focusMode, isTrue);
   });

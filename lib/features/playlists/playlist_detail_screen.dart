@@ -24,8 +24,8 @@ class PlaylistDetailScreen extends ConsumerWidget {
         title: Text(p.name),
         actions: [
           IconButton(
-            tooltip: 'Lire (auto-avance)',
-            icon: const Icon(Icons.play_circle),
+            tooltip: 'Réciter (auto-avance)',
+            icon: const Icon(Icons.graphic_eq),
             onPressed: p.items.isEmpty ? null : () => _playAll(context, ref, p),
           ),
         ],
@@ -36,7 +36,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   'Cette playlist est vide. Appuie longuement sur un verset pour l’ajouter, ou parcours l’Atlas.',
               icon: Icons.playlist_add,
               action: FilledButton.icon(
-                onPressed: () => context.go('/atlas'),
+                onPressed: () => context.go('/coran'),
                 icon: const Icon(Icons.grid_view),
                 label: const Text('Ajouter des passages'),
               ),
@@ -75,6 +75,6 @@ class PlaylistDetailScreen extends ConsumerWidget {
       keys.addAll(verses.map((v) => v.verseKey));
     }
     if (!context.mounted) return;
-    context.push('/read?play=1', extra: SelReview(p.name, keys));
+    context.push('/recite', extra: SelReview(p.name, keys));
   }
 }
