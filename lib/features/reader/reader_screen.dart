@@ -532,7 +532,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       ),
                     ],
             ),
-      bottomNavigationBar: useMushaf ? null : _bottomBar(focus),
+      bottomNavigationBar: useMushaf ? null : _bottomBar(),
       body: GestureDetector(
         onTap: () => setState(() => _chromeVisible = !_chromeVisible),
         child: Stack(
@@ -599,7 +599,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// Barre du bas, en vraie zone de Scaffold (jamais superposée au contenu).
   /// Récitation = transport audio ; lecture = défilement (+ stop ponctuel).
-  Widget _bottomBar(bool focus) {
+  Widget _bottomBar() {
     if (_recitation) {
       return _AudioBar(
         playing: _playing,
@@ -618,8 +618,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       );
     }
     return _ReadingNavBar(
-      focusOn: focus,
-      onToggleFocus: () => setState(() => _focus = !focus),
       onPrev: () => _scrollSet(-1),
       onNext: () => _scrollSet(1),
     );
@@ -1238,16 +1236,13 @@ class _StopBar extends StatelessWidget {
   }
 }
 
-/// Barre de lecture (mode Lire) : focus + défilement par set d'âyât, pas d'audio.
+/// Barre de lecture (mode Lire) : défilement par set d'âyât, pas d'audio.
+/// Le focus se pilote uniquement depuis l'icône de l'AppBar (pas de doublon).
 class _ReadingNavBar extends StatelessWidget {
   const _ReadingNavBar({
-    required this.focusOn,
-    required this.onToggleFocus,
     required this.onPrev,
     required this.onNext,
   });
-  final bool focusOn;
-  final VoidCallback onToggleFocus;
   final VoidCallback onPrev;
   final VoidCallback onNext;
 
@@ -1270,22 +1265,14 @@ class _ReadingNavBar extends StatelessWidget {
           ],
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextButton.icon(
-              onPressed: onToggleFocus,
-              icon: Icon(
-                focusOn ? Icons.fullscreen_exit : Icons.center_focus_strong,
-                size: 20,
-              ),
-              label: Text(focusOn ? 'Quitter' : 'Focus'),
-              style: TextButton.styleFrom(foregroundColor: t.inkSoft),
-            ),
-            const Spacer(),
             IconButton(
               tooltip: 'Précédent',
               icon: Icon(Icons.keyboard_arrow_up, color: t.ink),
               onPressed: onPrev,
             ),
+            const SizedBox(width: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: t.accent,
