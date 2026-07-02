@@ -73,6 +73,7 @@ class Settings {
     this.reminderTime = '08:00',
     this.currentVerseKey = '1:1',
     this.coachmarkSeen = false,
+    this.batteryTipSeen = false,
     this.readerLayout = 'flexible',
     this.fontScale = 1.0,
   });
@@ -106,6 +107,7 @@ class Settings {
       reminderTime: asS('reminderTime', def.reminderTime),
       currentVerseKey: asS('currentVerseKey', def.currentVerseKey),
       coachmarkSeen: asB('coachmarkSeen', def.coachmarkSeen),
+      batteryTipSeen: asB('batteryTipSeen', def.batteryTipSeen),
       readerLayout: asS('readerLayout', def.readerLayout),
       fontScale: asD('fontScale', def.fontScale).clamp(0.7, 1.8),
     );
@@ -132,6 +134,9 @@ class Settings {
   final String reminderTime;
   final String currentVerseKey;
   final bool coachmarkSeen;
+
+  /// Astuce batterie (audio coupé en arrière-plan) déjà affichée une fois.
+  final bool batteryTipSeen;
   final String readerLayout;
   final double fontScale;
 
@@ -156,6 +161,7 @@ class Settings {
         'reminderTime': reminderTime,
         'currentVerseKey': currentVerseKey,
         'coachmarkSeen': coachmarkSeen,
+        'batteryTipSeen': batteryTipSeen,
         'readerLayout': readerLayout,
         'fontScale': fontScale,
       };
@@ -181,6 +187,7 @@ class Settings {
     String? reminderTime,
     String? currentVerseKey,
     bool? coachmarkSeen,
+    bool? batteryTipSeen,
     String? readerLayout,
     double? fontScale,
   }) =>
@@ -205,6 +212,7 @@ class Settings {
         reminderTime: reminderTime ?? this.reminderTime,
         currentVerseKey: currentVerseKey ?? this.currentVerseKey,
         coachmarkSeen: coachmarkSeen ?? this.coachmarkSeen,
+        batteryTipSeen: batteryTipSeen ?? this.batteryTipSeen,
         readerLayout: readerLayout ?? this.readerLayout,
         fontScale: fontScale ?? this.fontScale,
       );

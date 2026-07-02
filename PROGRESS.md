@@ -1,5 +1,9 @@
 # PROGRESS — JuzReviz Mobile
 
+> **⚠️ ARCHIVE** — Ce document décrit un état antérieur de l'app (ancienne nav
+> Lire·Atlas·Playlists·Profil, EmberBadge, décor vivant, 31 tests). Il n'est
+> plus maintenu. Source de vérité : le code + [PLAN.md](PLAN.md).
+
 Build : `flutter analyze` **0 issue** · `flutter test` **31/31 verts** · corpus généré
 (6236 versets / 77 429 mots / 114 sourates, idempotent) · tafsir embarqué
 (78 Mo → **8,2 Mo gzip**, lazy).

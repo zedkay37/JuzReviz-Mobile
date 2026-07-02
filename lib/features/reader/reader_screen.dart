@@ -547,7 +547,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     );
                   }
                   _resolveResume(verses);
-                  if (focus || _recitation) return _buildList(verses, cfg);
+                  if (focus) return _buildList(verses, cfg);
+                  if (_recitation) {
+                    final tipSeen = ref.watch(
+                      settingsControllerProvider.select(
+                        (s) =>
+                            (s.valueOrNull ?? const Settings()).batteryTipSeen,
+                      ),
+                    );
+                    return Column(
+                      children: [
+                        if (!tipSeen)
+                          _BatteryTipCard(
+                            onDismiss: () => ref
+                                .read(settingsControllerProvider.notifier)
+                                .edit(
+                                  (p) => p.copyWith(batteryTipSeen: true),
+                                ),
+                          ),
+                        Expanded(child: _buildList(verses, cfg)),
+                      ],
+                    );
+                  }
                   final selecting = _rangeStart != null;
                   return Column(
                     children: [
@@ -1059,6 +1080,46 @@ class _RecitationVerseTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Astuce one-time : surcouches Android (MIUI, etc.) qui tuent l'audio en
+/// arrière-plan — l'utilisateur doit lever la restriction batterie lui-même.
+class _BatteryTipCard extends StatelessWidget {
+  const _BatteryTipCard({required this.onDismiss});
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        LanternSpace.md,
+        LanternSpace.sm,
+        LanternSpace.md,
+        0,
+      ),
+      padding: const EdgeInsets.fromLTRB(LanternSpace.md, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        border: Border.all(color: t.border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.battery_saver, color: t.accent, size: 20),
+          const SizedBox(width: LanternSpace.sm),
+          Expanded(
+            child: Text(
+              'L’audio se coupe en arrière-plan ? Autorise JuzReviz dans les '
+              'réglages batterie (« Aucune restriction »).',
+              style: TextStyle(color: t.inkSoft, fontSize: 12.5, height: 1.3),
+            ),
+          ),
+          TextButton(onPressed: onDismiss, child: const Text('OK')),
+        ],
       ),
     );
   }

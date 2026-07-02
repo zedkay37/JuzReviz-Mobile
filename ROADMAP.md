@@ -1,3 +1,7 @@
+> **ARCHIVE** — Roadmap d'origine, référence des intentions initiales.
+> L'app a divergé (nav 4 onglets, état unifié, écran Réciter dédié).
+> Source de vérité : le code + [PLAN.md](PLAN.md).
+
 # JuzReviz Mobile (Flutter) — Roadmap exécutable (phases → sprints → jalons)
 
 > **Format d'un jalon** : chaque sprint `Sx` a un **Objectif**, des **Livrables**,
