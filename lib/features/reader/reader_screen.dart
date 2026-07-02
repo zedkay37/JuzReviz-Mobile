@@ -36,7 +36,6 @@ typedef _ReaderConfig = ({
   bool latin,
   VeilMode veil,
   int veilWords,
-  bool focus,
   bool wordAudio,
   double fontSize,
 });
@@ -215,7 +214,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _playing = true;
       _activeKey = key;
     });
-    _scrollToKey(key, settings);
+    _scrollToKey(key);
     final audio = ref.read(audioControllerProvider);
     final ok = await audio.playVerse(
       settings.reciter,
@@ -235,17 +234,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  void _scrollToKey(String key, Settings settings) {
+  void _scrollToKey(String key) {
     final index = _verses.indexWhere((v) => v.verseKey == key);
     if (index < 0 || !_scroll.isAttached) return;
     _scroll.scrollTo(
       index: index + _lead,
       duration: LanternMotion.medium,
       curve: LanternMotion.emphasized,
-      alignment: scrollAlignmentFor(
-        settings.scrollTempo,
-        settings.scrollTempoStrength,
-      ),
+      // Verset actif calé dans le premier tiers de l'écran.
+      alignment: scrollAlignmentFor(ScrollTempo.sync, 0.5),
     );
   }
 
@@ -461,14 +458,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           latin: v.latinAyahNumbers,
           veil: v.veilMode,
           veilWords: v.veilWords,
-          focus: v.focusMode,
           wordAudio: v.wordAudio,
           fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
         );
       }),
     );
     final versesAsync = ref.watch(readerVersesProvider(_selection));
-    final focus = _focus || cfg.focus;
+    final focus = _focus;
     final layout = ref.watch(
       settingsControllerProvider.select(
         (s) => readerLayoutFromString(
@@ -478,10 +474,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
     final mushafReady = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
     final useMushaf =
-        !_recitation &&
-        mushafReady &&
-        (layout == ReaderLayout.mushafMadni ||
-            layout == ReaderLayout.mushafTajweed);
+        !_recitation && mushafReady && layout == ReaderLayout.mushaf;
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
@@ -655,10 +648,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           label: Text('Reprendre · verset $ayah'),
           onPressed: () {
             _dismissResume();
-            final settings =
-                ref.read(settingsControllerProvider).valueOrNull ??
-                const Settings();
-            _scrollToKey(key, settings);
+            _scrollToKey(key);
           },
         ),
       ),
@@ -851,9 +841,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       await _startFrom(picked);
     } else {
       // Coran : sauter = simple défilement, sans déclencher l'audio.
-      final settings =
-          ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
-      _scrollToKey(_verses[picked].verseKey, settings);
+      _scrollToKey(_verses[picked].verseKey);
     }
   }
 

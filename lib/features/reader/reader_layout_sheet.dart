@@ -117,8 +117,7 @@ class _LayoutCard extends StatelessWidget {
   final String? statusLabel;
 
   IconData get _icon => switch (layout) {
-        ReaderLayout.mushafTajweed => Icons.palette_outlined,
-        ReaderLayout.mushafMadni => Icons.menu_book,
+        ReaderLayout.mushaf => Icons.menu_book,
         ReaderLayout.flexible => Icons.text_fields,
         ReaderLayout.verseByVerse => Icons.auto_stories_outlined,
       };

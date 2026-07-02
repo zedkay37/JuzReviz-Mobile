@@ -170,12 +170,6 @@ class ReadingPage extends ConsumerWidget {
                   onChanged: (v) =>
                       _edit(ref, (p) => p.copyWith(veilWords: v.round())),
                 ),
-              SwitchRow(
-                title: 'Mode focus',
-                subtitle: 'Masquer toute l’interface',
-                value: s.focusMode,
-                onChanged: (v) => _edit(ref, (p) => p.copyWith(focusMode: v)),
-              ),
             ],
           ),
         ],
@@ -569,9 +563,9 @@ class AboutPage extends StatelessWidget {
                 title: Text('Vie privée', style: TextStyle(color: t.ink)),
                 subtitle: Text(
                   'Aucune donnée personnelle ne quitte l’appareil, aucun '
-                  'tracking. L’écoute et le téléchargement audio contactent '
-                  'everyayah.com et audio.qurancdn.com (fichiers audio '
-                  'uniquement, aucun identifiant transmis).',
+                  'tracking. L’audio et le pack mushaf sont récupérés depuis '
+                  'everyayah.com, audio.qurancdn.com et quran.foundation '
+                  '(fichiers statiques, aucun identifiant transmis).',
                   style: TextStyle(color: t.inkSoft),
                 ),
               ),

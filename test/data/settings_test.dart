@@ -38,7 +38,7 @@ void main() {
       repeatMode: AudioRepeatMode.range,
       contentLang: 'en',
       theme: 'rawda',
-      focusMode: true,
+      latinAyahNumbers: true,
     );
     final back = Settings.fromJsonSanitized(original.toJson());
     expect(back.reciter, original.reciter);
@@ -46,6 +46,12 @@ void main() {
     expect(back.repeatMode, AudioRepeatMode.range);
     expect(back.contentLang, 'en');
     expect(back.theme, 'rawda');
-    expect(back.focusMode, isTrue);
+    expect(back.latinAyahNumbers, isTrue);
+  });
+
+  test('migration des anciens layouts mushaf', () {
+    expect(readerLayoutFromString('mushafTajweed'), ReaderLayout.mushaf);
+    expect(readerLayoutFromString('mushafMadni'), ReaderLayout.mushaf);
+    expect(readerLayoutFromString('inconnu'), ReaderLayout.flexible);
   });
 }

@@ -7,15 +7,12 @@ import 'package:juzreviz/data/settings/settings.dart';
 
 /// Ouvre le panneau Tafsir pour un verset, sans quitter le contexte de lecture.
 Future<void> showTafsir(BuildContext context, WidgetRef ref, String verseKey) {
-  ref.read(settingsControllerProvider.notifier).edit((p) => p.copyWith(tafsirOpen: true));
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => TafsirPanel(verseKey: verseKey),
-  ).whenComplete(() {
-    ref.read(settingsControllerProvider.notifier).edit((p) => p.copyWith(tafsirOpen: false));
-  });
+  );
 }
 
 class TafsirPanel extends ConsumerWidget {

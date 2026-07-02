@@ -4,38 +4,39 @@ enum VeilMode { full, firstWords, hidden }
 
 enum ScrollTempo { ahead, sync, behind }
 
-/// Disposition du lecteur (façon « concurrent »).
-enum ReaderLayout { mushafTajweed, mushafMadni, flexible, verseByVerse }
+/// Disposition du lecteur. Une seule entrée mushaf : les polices QCF
+/// téléchargées (hafs v1) n'ont pas de variante tajweed colorée.
+enum ReaderLayout { mushaf, flexible, verseByVerse }
 
 extension ReaderLayoutX on ReaderLayout {
   String get id => name;
 
   String get label => switch (this) {
-        ReaderLayout.mushafTajweed => 'Tajweed Madni Mushaf',
-        ReaderLayout.mushafMadni => 'Madni Mushaf',
+        ReaderLayout.mushaf => 'Mushaf Madni',
         ReaderLayout.flexible => 'Flexible',
         ReaderLayout.verseByVerse => 'Verset par verset',
       };
 
   String get description => switch (this) {
-        ReaderLayout.mushafTajweed =>
-          'Règles de tajweed à code couleur pour une récitation correcte',
-        ReaderLayout.mushafMadni =>
-          'Mushaf Madni classique avec une disposition de page fixe',
+        ReaderLayout.mushaf =>
+          'Pages fixes du mushaf classique, polices d’imprimerie',
         ReaderLayout.flexible =>
           'Taille de police personnalisable et mise en page flexible',
         ReaderLayout.verseByVerse =>
           'Chaque verset avec traduction et signification des mots',
       };
 
-  /// Les dispositions mushaf nécessitent le pack de polices/pages (à venir).
+  /// Le mushaf nécessite le pack de polices téléchargeable (~90 Mo).
   bool get available =>
       this == ReaderLayout.flexible || this == ReaderLayout.verseByVerse;
 }
 
-ReaderLayout readerLayoutFromString(String s) =>
-    ReaderLayout.values.firstWhere((v) => v.name == s,
-        orElse: () => ReaderLayout.flexible);
+ReaderLayout readerLayoutFromString(String s) {
+  // Migration : les anciens ids mushafTajweed/mushafMadni → mushaf.
+  if (s == 'mushafTajweed' || s == 'mushafMadni') return ReaderLayout.mushaf;
+  return ReaderLayout.values
+      .firstWhere((v) => v.name == s, orElse: () => ReaderLayout.flexible);
+}
 
 enum AudioRepeatMode { off, ayah, range, progressive }
 
@@ -63,11 +64,7 @@ class Settings {
     this.readerTranslation = true,
     this.latinAyahNumbers = false,
     this.wordAudio = false,
-    this.scrollTempo = ScrollTempo.sync,
-    this.scrollTempoStrength = 0.5,
-    this.tafsirOpen = false,
     this.theme = 'lanterne',
-    this.focusMode = false,
     this.veilMode = VeilMode.full,
     this.veilWords = 3,
     this.masteryProfile = MasteryProfile.serenity,
@@ -99,13 +96,7 @@ class Settings {
       readerTranslation: asB('readerTranslation', def.readerTranslation),
       latinAyahNumbers: asB('latinAyahNumbers', def.latinAyahNumbers),
       wordAudio: asB('wordAudio', def.wordAudio),
-      scrollTempo:
-          _enumFrom(ScrollTempo.values, j['scrollTempo'], def.scrollTempo),
-      scrollTempoStrength:
-          asD('scrollTempoStrength', def.scrollTempoStrength).clamp(0.0, 1.0),
-      tafsirOpen: asB('tafsirOpen', def.tafsirOpen),
       theme: asS('theme', def.theme),
-      focusMode: asB('focusMode', def.focusMode),
       veilMode: _enumFrom(VeilMode.values, j['veilMode'], def.veilMode),
       veilWords: asI('veilWords', def.veilWords).clamp(1, 10),
       masteryProfile: masteryProfileFromString(
@@ -132,11 +123,7 @@ class Settings {
   final bool readerTranslation;
   final bool latinAyahNumbers;
   final bool wordAudio;
-  final ScrollTempo scrollTempo;
-  final double scrollTempoStrength;
-  final bool tafsirOpen;
   final String theme;
-  final bool focusMode;
   final VeilMode veilMode;
   final int veilWords;
   final MasteryProfile masteryProfile;
@@ -160,11 +147,7 @@ class Settings {
         'readerTranslation': readerTranslation,
         'latinAyahNumbers': latinAyahNumbers,
         'wordAudio': wordAudio,
-        'scrollTempo': scrollTempo.name,
-        'scrollTempoStrength': scrollTempoStrength,
-        'tafsirOpen': tafsirOpen,
         'theme': theme,
-        'focusMode': focusMode,
         'veilMode': veilMode.name,
         'veilWords': veilWords,
         'masteryProfile': masteryProfile.name,
@@ -189,11 +172,7 @@ class Settings {
     bool? readerTranslation,
     bool? latinAyahNumbers,
     bool? wordAudio,
-    ScrollTempo? scrollTempo,
-    double? scrollTempoStrength,
-    bool? tafsirOpen,
     String? theme,
-    bool? focusMode,
     VeilMode? veilMode,
     int? veilWords,
     MasteryProfile? masteryProfile,
@@ -217,11 +196,7 @@ class Settings {
         readerTranslation: readerTranslation ?? this.readerTranslation,
         latinAyahNumbers: latinAyahNumbers ?? this.latinAyahNumbers,
         wordAudio: wordAudio ?? this.wordAudio,
-        scrollTempo: scrollTempo ?? this.scrollTempo,
-        scrollTempoStrength: scrollTempoStrength ?? this.scrollTempoStrength,
-        tafsirOpen: tafsirOpen ?? this.tafsirOpen,
         theme: theme ?? this.theme,
-        focusMode: focusMode ?? this.focusMode,
         veilMode: veilMode ?? this.veilMode,
         veilWords: veilWords ?? this.veilWords,
         masteryProfile: masteryProfile ?? this.masteryProfile,
