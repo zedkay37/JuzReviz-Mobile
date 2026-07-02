@@ -44,6 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Secrets de signature release — jamais commités
+/android/key.properties
+*.jks
+*.keystore
+
 # Pack Mushaf : polices lourdes (90 Mo) — regenerees via tools/build_mushaf/fetch_qpc.dart
 assets/mushaf/fonts/*.ttf
 tools/build_mushaf/source/

@@ -86,8 +86,8 @@ GoRouter buildRouter() => GoRouter(
         ),
         GoRoute(
           path: '/atlas/surah/:n',
-          builder: (ctx, st) =>
-              SurahDrillScreen(surah: int.parse(st.pathParameters['n']!)),
+          builder: (ctx, st) => SurahDrillScreen(
+              surah: int.tryParse(st.pathParameters['n'] ?? '') ?? 1),
         ),
         GoRoute(
           path: '/playlists/:id',

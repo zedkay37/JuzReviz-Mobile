@@ -24,7 +24,8 @@ class CorpusRepository {
 
   Future<SurahMeta> surahMeta(int number) async {
     final metas = await surahMetas();
-    return metas.firstWhere((m) => m.number == number);
+    return metas.firstWhere((m) => m.number == number,
+        orElse: () => metas.first);
   }
 
   Future<List<Verse>> versesBySurah(int surah) async {

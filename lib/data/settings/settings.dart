@@ -67,19 +67,13 @@ class Settings {
     this.scrollTempoStrength = 0.5,
     this.tafsirOpen = false,
     this.theme = 'lanterne',
-    this.immersiveAutoHide = true,
     this.focusMode = false,
     this.veilMode = VeilMode.full,
     this.veilWords = 3,
     this.masteryProfile = MasteryProfile.serenity,
     this.autoMaster = false,
-    this.ambientDecor = false,
-    this.keepScreenOn = false,
-    this.dynamicColor = false,
-    this.widgetEnabled = true,
     this.remindersEnabled = false,
     this.reminderTime = '08:00',
-    this.reminderFrequency = 'daily',
     this.currentVerseKey = '1:1',
     this.coachmarkSeen = false,
     this.readerLayout = 'flexible',
@@ -111,20 +105,14 @@ class Settings {
           asD('scrollTempoStrength', def.scrollTempoStrength).clamp(0.0, 1.0),
       tafsirOpen: asB('tafsirOpen', def.tafsirOpen),
       theme: asS('theme', def.theme),
-      immersiveAutoHide: asB('immersiveAutoHide', def.immersiveAutoHide),
       focusMode: asB('focusMode', def.focusMode),
       veilMode: _enumFrom(VeilMode.values, j['veilMode'], def.veilMode),
       veilWords: asI('veilWords', def.veilWords).clamp(1, 10),
       masteryProfile: masteryProfileFromString(
           asS('masteryProfile', def.masteryProfile.name)),
       autoMaster: asB('autoMaster', def.autoMaster),
-      ambientDecor: asB('ambientDecor', def.ambientDecor),
-      keepScreenOn: asB('keepScreenOn', def.keepScreenOn),
-      dynamicColor: asB('dynamicColor', def.dynamicColor),
-      widgetEnabled: asB('widgetEnabled', def.widgetEnabled),
       remindersEnabled: asB('remindersEnabled', def.remindersEnabled),
       reminderTime: asS('reminderTime', def.reminderTime),
-      reminderFrequency: asS('reminderFrequency', def.reminderFrequency),
       currentVerseKey: asS('currentVerseKey', def.currentVerseKey),
       coachmarkSeen: asB('coachmarkSeen', def.coachmarkSeen),
       readerLayout: asS('readerLayout', def.readerLayout),
@@ -148,19 +136,13 @@ class Settings {
   final double scrollTempoStrength;
   final bool tafsirOpen;
   final String theme;
-  final bool immersiveAutoHide;
   final bool focusMode;
   final VeilMode veilMode;
   final int veilWords;
   final MasteryProfile masteryProfile;
   final bool autoMaster;
-  final bool ambientDecor;
-  final bool keepScreenOn;
-  final bool dynamicColor;
-  final bool widgetEnabled;
   final bool remindersEnabled;
   final String reminderTime;
-  final String reminderFrequency;
   final String currentVerseKey;
   final bool coachmarkSeen;
   final String readerLayout;
@@ -182,19 +164,13 @@ class Settings {
         'scrollTempoStrength': scrollTempoStrength,
         'tafsirOpen': tafsirOpen,
         'theme': theme,
-        'immersiveAutoHide': immersiveAutoHide,
         'focusMode': focusMode,
         'veilMode': veilMode.name,
         'veilWords': veilWords,
         'masteryProfile': masteryProfile.name,
         'autoMaster': autoMaster,
-        'ambientDecor': ambientDecor,
-        'keepScreenOn': keepScreenOn,
-        'dynamicColor': dynamicColor,
-        'widgetEnabled': widgetEnabled,
         'remindersEnabled': remindersEnabled,
         'reminderTime': reminderTime,
-        'reminderFrequency': reminderFrequency,
         'currentVerseKey': currentVerseKey,
         'coachmarkSeen': coachmarkSeen,
         'readerLayout': readerLayout,
@@ -217,19 +193,13 @@ class Settings {
     double? scrollTempoStrength,
     bool? tafsirOpen,
     String? theme,
-    bool? immersiveAutoHide,
     bool? focusMode,
     VeilMode? veilMode,
     int? veilWords,
     MasteryProfile? masteryProfile,
     bool? autoMaster,
-    bool? ambientDecor,
-    bool? keepScreenOn,
-    bool? dynamicColor,
-    bool? widgetEnabled,
     bool? remindersEnabled,
     String? reminderTime,
-    String? reminderFrequency,
     String? currentVerseKey,
     bool? coachmarkSeen,
     String? readerLayout,
@@ -251,19 +221,13 @@ class Settings {
         scrollTempoStrength: scrollTempoStrength ?? this.scrollTempoStrength,
         tafsirOpen: tafsirOpen ?? this.tafsirOpen,
         theme: theme ?? this.theme,
-        immersiveAutoHide: immersiveAutoHide ?? this.immersiveAutoHide,
         focusMode: focusMode ?? this.focusMode,
         veilMode: veilMode ?? this.veilMode,
         veilWords: veilWords ?? this.veilWords,
         masteryProfile: masteryProfile ?? this.masteryProfile,
         autoMaster: autoMaster ?? this.autoMaster,
-        ambientDecor: ambientDecor ?? this.ambientDecor,
-        keepScreenOn: keepScreenOn ?? this.keepScreenOn,
-        dynamicColor: dynamicColor ?? this.dynamicColor,
-        widgetEnabled: widgetEnabled ?? this.widgetEnabled,
         remindersEnabled: remindersEnabled ?? this.remindersEnabled,
         reminderTime: reminderTime ?? this.reminderTime,
-        reminderFrequency: reminderFrequency ?? this.reminderFrequency,
         currentVerseKey: currentVerseKey ?? this.currentVerseKey,
         coachmarkSeen: coachmarkSeen ?? this.coachmarkSeen,
         readerLayout: readerLayout ?? this.readerLayout,

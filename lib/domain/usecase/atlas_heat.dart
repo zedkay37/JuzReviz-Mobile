@@ -33,14 +33,3 @@ List<SurahHeatTile> buildAtlasHeat(
           ))
       .toList(growable: false);
 }
-
-/// Chaleur agrégée par juz (Atlas vue Juz).
-class JuzHeat {
-  const JuzHeat(this.juz, this.warmth, this.hasFragile, this.needsReview,
-      this.dominant);
-  final int juz;
-  final double warmth;
-  final bool hasFragile;
-  final int needsReview;
-  final HeatState dominant;
-}

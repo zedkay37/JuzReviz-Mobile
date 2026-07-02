@@ -321,31 +321,6 @@ class AppearancePage extends ConsumerWidget {
               ],
             ),
           ),
-          const SettingSection('Confort'),
-          SettingGroup(
-            children: [
-              SwitchRow(
-                title: 'Couleur dynamique',
-                subtitle: 'Dérivée du fond d’écran (Android), bridée lanterne',
-                value: s.dynamicColor,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(dynamicColor: v)),
-              ),
-              SwitchRow(
-                title: 'Garder l’écran allumé',
-                value: s.keepScreenOn,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(keepScreenOn: v)),
-              ),
-              SwitchRow(
-                title: 'Décor vivant',
-                subtitle: 'Halo de braise discret pendant la lecture',
-                value: s.ambientDecor,
-                onChanged: (v) =>
-                    _edit(ref, (p) => p.copyWith(ambientDecor: v)),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -593,7 +568,10 @@ class AboutPage extends StatelessWidget {
               ListTile(
                 title: Text('Vie privée', style: TextStyle(color: t.ink)),
                 subtitle: Text(
-                  'Aucune donnée ne quitte l’appareil. Aucun tracking.',
+                  'Aucune donnée personnelle ne quitte l’appareil, aucun '
+                  'tracking. L’écoute et le téléchargement audio contactent '
+                  'everyayah.com et audio.qurancdn.com (fichiers audio '
+                  'uniquement, aucun identifiant transmis).',
                   style: TextStyle(color: t.inkSoft),
                 ),
               ),

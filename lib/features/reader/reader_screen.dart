@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:juzreviz/app/providers.dart';
-import 'package:juzreviz/core/designsystem/components/lantern_ambient.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/components/review_banner.dart';
@@ -469,11 +468,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       }),
     );
     final versesAsync = ref.watch(readerVersesProvider(_selection));
-    final ambient = ref.watch(
-      settingsControllerProvider.select(
-        (s) => (s.valueOrNull ?? const Settings()).ambientDecor,
-      ),
-    );
     final focus = _focus || cfg.focus;
     final layout = ref.watch(
       settingsControllerProvider.select(
@@ -537,8 +531,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onTap: () => setState(() => _chromeVisible = !_chromeVisible),
         child: Stack(
           children: [
-            if (ambient)
-              Positioned.fill(child: LanternAmbient(animate: !reduceMotion)),
             SafeArea(
               child: versesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),

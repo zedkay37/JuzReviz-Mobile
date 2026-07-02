@@ -47,6 +47,7 @@ class FileJsonStore implements JsonStore {
   }
 }
 
+/// Implémentation en mémoire — utilisée par les tests (pas de disque).
 class MemoryJsonStore implements JsonStore {
   final Map<String, Map<String, dynamic>> _data = {};
 

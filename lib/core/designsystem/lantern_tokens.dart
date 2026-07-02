@@ -132,16 +132,6 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
   }
 }
 
-/// Échelle typographique en tokens (tailles fluides ajustées en widget).
-class LanternType {
-  static const double displayArabic = 34;
-  static const double verseArabic = 30;
-  static const double gloss = 13;
-  static const double uiTitle = 20;
-  static const double uiBody = 15;
-  static const double caption = 12;
-}
-
 /// Specs de motion (durées/easing) en tokens.
 class LanternMotion {
   static const Duration fast = Duration(milliseconds: 140);
