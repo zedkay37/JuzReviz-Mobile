@@ -37,8 +37,8 @@ class _KnownSurahsSheetState extends ConsumerState<_KnownSurahsSheet> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Coche tes sourates mémorisées : la carte de chaleur et le programme '
-          'du jour démarrent avec ton vrai niveau. Modifiable à tout moment.',
+          'Coche tes sourates mémorisées : tes révisions commencent dès '
+          'aujourd’hui, par petites vagues quotidiennes — pas tout d’un coup.',
           style: TextStyle(color: t.inkSoft, fontSize: 13, height: 1.35),
         ),
         const SizedBox(height: LanternSpace.md),
@@ -99,12 +99,20 @@ class _KnownSurahsSheetState extends ConsumerState<_KnownSurahsSheet> {
               ? null
               : () async {
                   final byNum = {for (final m in metas) m.number: m.ayahCount};
+                  final n = _selected.length;
+                  final messenger = ScaffoldMessenger.of(context);
                   await ref
                       .read(masteryControllerProvider.notifier)
                       .seedKnownSurahs({
-                    for (final n in _selected) n: byNum[n] ?? 1,
+                    for (final s in _selected) s: byNum[s] ?? 1,
                   });
-                  if (context.mounted) Navigator.of(context).pop();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                  messenger.showSnackBar(SnackBar(
+                    content: Text(
+                        '$n sourate${n > 1 ? 's' : ''} au programme — tes '
+                        'premières révisions t’attendent.'),
+                  ));
                 },
           child: Text(_selected.isEmpty
               ? 'Coche au moins une sourate'

@@ -4,6 +4,7 @@ import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/data/common/json_store.dart';
 import 'package:juzreviz/data/mastery/mastery_state.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
+import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 
 ProviderContainer _container() => ProviderContainer(
@@ -86,5 +87,36 @@ void main() {
 
   test('hasImplicitScar reste pur (parité inchangée)', () {
     expect(hasImplicitScar(null, Mastered(1000)), isFalse);
+  });
+
+  test('seedKnownSurahs : échéances étalées, premières dues immédiatement',
+      () async {
+    final c = _container();
+    addTearDown(c.dispose);
+    final ctrl = c.read(masteryControllerProvider.notifier);
+    await c.read(masteryControllerProvider.future);
+    final now = c.read(clockProvider).nowMs();
+
+    await ctrl.seedKnownSurahs({1: 7, 114: 6});
+    final s = c.read(masteryControllerProvider).value!;
+
+    expect(s.memorizedSurahs, {1, 114});
+    expect(s.mastered.length, 13);
+    // Premier verset ensemencé : déjà à échéance (fading, plus fresh).
+    expect(
+      verseHeatState(null, s.mastered['1:1'], MasteryProfile.serenity, now),
+      isNot(HeatState.fresh),
+    );
+    // Dernier verset : encore frais (sa vague arrive dans ~2 semaines).
+    expect(
+      verseHeatState(null, s.mastered['114:6'], MasteryProfile.serenity, now),
+      HeatState.fresh,
+    );
+    // Les dates s'échelonnent strictement du premier au dernier.
+    expect(
+      s.mastered['1:1']!.masteredAtMs <
+          s.mastered['114:6']!.masteredAtMs,
+      isTrue,
+    );
   });
 }

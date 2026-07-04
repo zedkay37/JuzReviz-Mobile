@@ -275,19 +275,38 @@ class MasteryController extends AsyncNotifier<MasteryState> {
   }
 
   /// Ensemencement au premier lancement : marque des sourates entières comme
-  /// déjà mémorisées (memorizedSurahs + toutes leurs âyât maîtrisées), en une
-  /// seule persistance. Allume la carte de chaleur et la file SRS d'un coup.
+  /// déjà mémorisées, en une seule persistance.
+  ///
+  /// Les dates de maîtrise sont ANTIDATÉES en escalier : les premiers versets
+  /// arrivent à échéance immédiatement, les derniers sous [_seedRampDays].
+  /// Sans cela, tout serait « frais » pendant des mois et l'onglet
+  /// Aujourd'hui resterait vide — le SRS doit vérifier ce que l'utilisateur
+  /// croit connaître, par petites vagues quotidiennes.
+  static const _seedRampDays = 14;
+
   Future<void> seedKnownSurahs(Map<int, int> surahToAyahCount) {
     if (surahToAyahCount.isEmpty) return Future.value();
     final now = _now();
+    final profile =
+        (ref.read(settingsControllerProvider).valueOrNull ?? const Settings())
+            .masteryProfile;
+    final freshMs = (freshDaysFor(profile) * 86400000).round();
+    const rampMs = _seedRampDays * 86400000;
+
+    final total = surahToAyahCount.values.fold<int>(0, (a, b) => a + b);
     final mastered = {..._s.mastered};
     final memorized = {..._s.memorizedSurahs};
-    surahToAyahCount.forEach((surah, count) {
+    var i = 0;
+    for (final surah in surahToAyahCount.keys.toList()..sort()) {
       memorized.add(surah);
+      final count = surahToAyahCount[surah]!;
       for (var a = 1; a <= count; a++) {
-        mastered.putIfAbsent('$surah:$a', () => Mastered(now));
+        // Échéance du verset i : dans (i/total) × ramp jours.
+        final due = now + (rampMs * i ~/ total);
+        mastered.putIfAbsent('$surah:$a', () => Mastered(due - freshMs));
+        i++;
       }
-    });
+    }
     return _persist(
         _s.copyWith(mastered: mastered, memorizedSurahs: memorized));
   }

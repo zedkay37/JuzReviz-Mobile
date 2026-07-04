@@ -21,6 +21,10 @@ _Thresholds _thresholds(MasteryProfile p) => switch (p) {
 
 const double _dayMs = 86400000;
 
+/// Jours de « fraîcheur » avant qu'un verset maîtrisé redevienne à revoir
+/// (sans échec). Utilisé par l'ensemencement pour étaler les échéances.
+double freshDaysFor(MasteryProfile p) => _thresholds(p).freshDays;
+
 double daysSince(int epochMs, int now) =>
     epochMs <= 0 ? double.infinity : math.max(0, (now - epochMs) / _dayMs);
 
