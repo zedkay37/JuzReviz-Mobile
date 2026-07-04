@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/common/text_normalize.dart';
+import 'package:juzreviz/core/designsystem/components/heat_labels.dart';
 import 'package:juzreviz/core/designsystem/components/heat_widgets.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/review_banner.dart';
@@ -163,10 +164,12 @@ class _HeatLegend extends StatelessWidget {
         spacing: 14,
         runSpacing: 6,
         children: [
-          dot(HeatState.fresh, 'Frais'),
-          dot(HeatState.fading, 'Tiédit'),
-          dot(HeatState.fragile, 'Fragile'),
-          dot(HeatState.blank, 'Vierge'),
+          // Libellés = heatLabelFr : un seul vocabulaire dans toute l'app.
+          dot(HeatState.fresh, heatLabelFr(HeatState.fresh)),
+          dot(HeatState.fading, heatLabelFr(HeatState.fading)),
+          dot(HeatState.stale, heatLabelFr(HeatState.stale)),
+          dot(HeatState.fragile, heatLabelFr(HeatState.fragile)),
+          dot(HeatState.blank, heatLabelFr(HeatState.blank)),
         ],
       ),
     );

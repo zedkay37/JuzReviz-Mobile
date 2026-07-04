@@ -63,6 +63,7 @@ class Settings {
     this.readerWordByWord = true,
     this.readerTranslation = true,
     this.latinAyahNumbers = false,
+    this.tajweedColors = false,
     this.wordAudio = false,
     this.theme = 'lanterne',
     this.veilMode = VeilMode.full,
@@ -96,6 +97,7 @@ class Settings {
       readerWordByWord: asB('readerWordByWord', def.readerWordByWord),
       readerTranslation: asB('readerTranslation', def.readerTranslation),
       latinAyahNumbers: asB('latinAyahNumbers', def.latinAyahNumbers),
+      tajweedColors: asB('tajweedColors', def.tajweedColors),
       wordAudio: asB('wordAudio', def.wordAudio),
       theme: asS('theme', def.theme),
       veilMode: _enumFrom(VeilMode.values, j['veilMode'], def.veilMode),
@@ -124,6 +126,9 @@ class Settings {
   final bool readerWordByWord;
   final bool readerTranslation;
   final bool latinAyahNumbers;
+
+  /// Coloration tajwid (sous-ensemble fiable : ghunnah, madd, qalqalah…).
+  final bool tajweedColors;
   final bool wordAudio;
   final String theme;
   final VeilMode veilMode;
@@ -151,6 +156,7 @@ class Settings {
         'readerWordByWord': readerWordByWord,
         'readerTranslation': readerTranslation,
         'latinAyahNumbers': latinAyahNumbers,
+        'tajweedColors': tajweedColors,
         'wordAudio': wordAudio,
         'theme': theme,
         'veilMode': veilMode.name,
@@ -177,6 +183,7 @@ class Settings {
     bool? readerWordByWord,
     bool? readerTranslation,
     bool? latinAyahNumbers,
+    bool? tajweedColors,
     bool? wordAudio,
     String? theme,
     VeilMode? veilMode,
@@ -202,6 +209,7 @@ class Settings {
         readerWordByWord: readerWordByWord ?? this.readerWordByWord,
         readerTranslation: readerTranslation ?? this.readerTranslation,
         latinAyahNumbers: latinAyahNumbers ?? this.latinAyahNumbers,
+        tajweedColors: tajweedColors ?? this.tajweedColors,
         wordAudio: wordAudio ?? this.wordAudio,
         theme: theme ?? this.theme,
         veilMode: veilMode ?? this.veilMode,

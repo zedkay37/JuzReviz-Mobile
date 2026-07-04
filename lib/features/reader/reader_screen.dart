@@ -37,6 +37,7 @@ typedef _ReaderConfig = ({
   VeilMode veil,
   int veilWords,
   bool wordAudio,
+  bool tajweed,
   double fontSize,
 });
 
@@ -459,6 +460,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           veil: v.veilMode,
           veilWords: v.veilWords,
           wordAudio: v.wordAudio,
+          tajweed: v.tajweedColors,
           fontSize: (30.0 * v.fontScale).clamp(20.0, 54.0),
         );
       }),
@@ -721,6 +723,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           veilMode: cfg.veil,
                           veilWords: cfg.veilWords,
                           fontSize: cfg.fontSize,
+                          tajweed: cfg.tajweed,
                           active: _activeKey == v.verseKey,
                           // Tap sur un mot = audio de prononciation du mot
                           // (réglage « Audio-mot » explicite).

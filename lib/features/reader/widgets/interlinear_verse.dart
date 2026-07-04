@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:juzreviz/core/arabic/arabic_text.dart';
+import 'package:juzreviz/core/arabic/tajweed.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/settings/settings.dart';
@@ -20,6 +21,7 @@ class InterlinearVerse extends StatefulWidget {
     this.veilMode = VeilMode.full,
     this.veilWords = 3,
     this.fontSize = 30,
+    this.tajweed = false,
     this.highlightedPosition,
     this.active = false,
     this.onWordTap,
@@ -36,6 +38,9 @@ class InterlinearVerse extends StatefulWidget {
   final VeilMode veilMode;
   final int veilWords;
   final double fontSize;
+
+  /// Coloration tajwid (ghunnah/madd/qalqalah…) sur le texte arabe.
+  final bool tajweed;
   final int? highlightedPosition;
 
   /// Verset en cours de lecture (surlignage doux + auto-scroll).
@@ -100,8 +105,17 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
             children: [
               if (useColumns) _wordColumns(t) else _fullLine(t),
               if (widget.showTranslation && translation.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 14),
+                Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    // Couche de sens séparée visuellement du texte arabe.
+                    color: t.surfaceHigh.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Text(
                     translation,
                     textAlign: TextAlign.start,
@@ -115,12 +129,49 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     );
   }
 
+  /// Mot arabe suivant (règles tajwid inter-mots), null en fin de verset.
+  String? _nextArabic(int i) =>
+      i + 1 < widget.verse.words.length ? widget.verse.words[i + 1].arabic : null;
+
+  /// Spans tajwid d'un mot : lettres colorées par règle, base sinon.
+  TextSpan _tajweedSpan(String word, String? next, TextStyle base) => TextSpan(
+        children: [
+          for (final seg in tajweedSegments(word, nextWord: next))
+            TextSpan(
+              text: seg.text,
+              style: seg.rule == null
+                  ? base
+                  : base.copyWith(color: tajweedColors[seg.rule]),
+            ),
+        ],
+      );
+
   Widget _fullLine(LanternTokens t) => Row(
     crossAxisAlignment: CrossAxisAlignment.center,
     textDirection: TextDirection.rtl,
     children: [
       Expanded(
-        child: ArabicText(widget.verse.arabic, fontSize: widget.fontSize),
+        child: widget.tajweed && widget.verse.words.isNotEmpty
+            ? Text.rich(
+                TextSpan(children: [
+                  for (var i = 0; i < widget.verse.words.length; i++) ...[
+                    _tajweedSpan(
+                      widget.verse.words[i].arabic,
+                      _nextArabic(i),
+                      TextStyle(
+                        fontFamily: t.arabicFamily,
+                        fontSize: widget.fontSize,
+                        height: 1.9,
+                        color: t.ink,
+                      ),
+                    ),
+                    if (i < widget.verse.words.length - 1)
+                      const TextSpan(text: ' '),
+                  ],
+                ]),
+                textDirection: TextDirection.rtl,
+              )
+            : ArabicText(widget.verse.arabic, fontSize: widget.fontSize),
       ),
       const SizedBox(width: LanternSpace.sm),
       AyahSeal(ayah: widget.verse.ayah, latin: widget.latinAyahNumbers),
@@ -135,7 +186,12 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     runSpacing: 20,
     children: [
       for (var i = 0; i < widget.verse.words.length; i++)
-        _wordCell(t, widget.verse.words[i], visible: i < _visibleCount),
+        _wordCell(
+          t,
+          widget.verse.words[i],
+          next: _nextArabic(i),
+          visible: i < _visibleCount,
+        ),
       Padding(
         padding: const EdgeInsets.only(top: 2),
         child: AyahSeal(
@@ -146,7 +202,8 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     ],
   );
 
-  Widget _wordCell(LanternTokens t, Word w, {required bool visible}) {
+  Widget _wordCell(LanternTokens t, Word w,
+      {String? next, required bool visible}) {
     final highlighted = widget.highlightedPosition == w.position;
     if (!visible) {
       return GestureDetector(
@@ -182,15 +239,18 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
                       borderRadius: BorderRadius.circular(6),
                     )
                   : null,
-              child: Text(
-                w.arabic,
-                style: TextStyle(
+              child: Builder(builder: (_) {
+                final style = TextStyle(
                   fontFamily: t.arabicFamily,
                   fontSize: w.isWaqf ? widget.fontSize * 0.6 : widget.fontSize,
                   height: 1.34,
                   color: highlighted ? t.accent : t.ink,
-                ),
-              ),
+                );
+                // Le surlignage audio prime sur la coloration tajwid.
+                return widget.tajweed && !highlighted
+                    ? Text.rich(_tajweedSpan(w.arabic, next, style))
+                    : Text(w.arabic, style: style);
+              }),
             ),
           ),
           if (widget.wordByWord)

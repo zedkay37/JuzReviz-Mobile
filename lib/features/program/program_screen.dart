@@ -9,6 +9,7 @@ import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
 import 'package:juzreviz/domain/usecase/decay_queue.dart';
+import 'package:juzreviz/features/program/known_surahs_sheet.dart';
 
 class ProgramScreen extends ConsumerWidget {
   const ProgramScreen({super.key});
@@ -19,12 +20,20 @@ class ProgramScreen extends ConsumerWidget {
     final streak = ref.watch(streakProvider).valueOrNull ?? 0;
     final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
 
+    // État vierge : rien de marqué → l'onboarding d'ensemencement prime.
+    final mastery = ref.watch(masteryControllerProvider).valueOrNull;
+    final blank = mastery != null &&
+        mastery.mastered.isEmpty &&
+        mastery.fragile.isEmpty &&
+        mastery.memorizedSurahs.isEmpty;
+
     return LanternScaffold(
       appBar: AppBar(title: const Text('Aujourd’hui')),
       body: queueAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
         data: (queue) {
+          if (blank) return const _ColdStart();
           return Column(
             children: [
               _Header(streak: streak, count: queue.length),
@@ -39,7 +48,7 @@ class ProgramScreen extends ConsumerWidget {
                             ? null
                             : () => _start(context, queue, 15),
                         icon: const Icon(Icons.timer_outlined),
-                        label: const Text('3 minutes'),
+                        label: const Text('Session rapide'),
                       ),
                     ),
                     const SizedBox(width: LanternSpace.sm),
@@ -149,20 +158,72 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.all(LanternSpace.md),
       child: Row(
         children: [
-          Icon(Icons.local_fire_department, color: t.accent),
-          const SizedBox(width: 6),
-          Text('$streak j',
-              style: TextStyle(
-                  color: t.ink, fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(width: 4),
-          Text('de régularité',
-              style: TextStyle(color: t.inkSoft, fontSize: 13)),
+          // Un « 0 j » décourage : le streak n'apparaît qu'à partir de 1.
+          if (streak > 0) ...[
+            Icon(Icons.local_fire_department, color: t.accent),
+            const SizedBox(width: 6),
+            Text('$streak j',
+                style: TextStyle(
+                    color: t.ink, fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 4),
+            Text('de régularité',
+                style: TextStyle(color: t.inkSoft, fontSize: 13)),
+          ] else
+            Text('Ta révision du jour',
+                style: TextStyle(
+                    color: t.ink, fontSize: 16, fontWeight: FontWeight.w500)),
           const Spacer(),
           Text(
             count == 0 ? 'À jour' : '$count à revoir',
             style: TextStyle(color: t.inkSoft, fontSize: 13),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Premier lancement : rien de marqué → ensemencer avec les sourates connues.
+class _ColdStart extends StatelessWidget {
+  const _ColdStart();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(LanternSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, color: t.accent, size: 44),
+            const SizedBox(height: 16),
+            Text(
+              'Commence avec ce que tu sais',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: t.ink, fontSize: 20, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Indique les sourates que tu connais déjà par cœur : '
+              'ton programme de révision démarre immédiatement.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: t.inkSoft, fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => showKnownSurahsSheet(context),
+              icon: const Icon(Icons.checklist),
+              label: const Text('Je connais déjà des sourates'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => context.go('/coran'),
+              child: const Text('Je pars de zéro — ouvrir le Coran'),
+            ),
+          ],
+        ),
       ),
     );
   }

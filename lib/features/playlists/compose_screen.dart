@@ -9,6 +9,7 @@ import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/components/prompt_dialog.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
@@ -119,9 +120,10 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
           data: (metas) => TabBarView(
             children: [
               ListView.builder(
-                itemCount: metas.length + 1,
+                itemCount: metas.length + 2,
                 itemBuilder: (_, i) {
-                  if (i == 0) {
+                  if (i == 0) return _QuickActions(metas: metas);
+                  if (i == 1) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
                       child: Text(
@@ -130,7 +132,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
                       ),
                     );
                   }
-                  return _surahTile(t, metas[i - 1]);
+                  return _surahTile(t, metas[i - 2]);
                 },
               ),
               ListView.builder(
@@ -216,6 +218,102 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
             ? Icon(Icons.check, color: t.accentInk, size: 20)
             : Text(label, style: TextStyle(color: t.accent, fontSize: 13)),
       );
+}
+
+/// Accès directs au-dessus du composeur : reprendre la dernière position,
+/// écouter les versets à revoir. Zéro friction pour l'usage quotidien.
+class _QuickActions extends ConsumerWidget {
+  const _QuickActions({required this.metas});
+  final List<SurahMeta> metas;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.lantern;
+    final s =
+        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final queue = ref.watch(decayQueueProvider).valueOrNull ?? const [];
+
+    final parts = s.currentVerseKey.split(':');
+    final surah = int.tryParse(parts.first) ?? 1;
+    final ayah = parts.length > 1 ? int.tryParse(parts[1]) ?? 1 : 1;
+    final meta = metas.where((m) => m.number == surah).firstOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        LanternSpace.md,
+        LanternSpace.md,
+        LanternSpace.md,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (meta != null)
+            Material(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(LanternSpace.radius),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(LanternSpace.radius),
+                onTap: () => context.push(
+                  '/recite',
+                  extra: SelSurah(surah, ayah, meta.ayahCount),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(LanternSpace.md),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(LanternSpace.radius),
+                    border: Border.all(color: t.accent),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.play_circle, color: t.accent, size: 34),
+                      const SizedBox(width: LanternSpace.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Reprendre la récitation',
+                                style:
+                                    TextStyle(color: t.inkSoft, fontSize: 12)),
+                            Text(
+                              '${meta.transliteration} · verset $ayah',
+                              style: TextStyle(
+                                  color: t.ink,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: t.inkSoft),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (queue.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: LanternSpace.sm),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ActionChip(
+                  avatar: Icon(Icons.local_fire_department,
+                      size: 18, color: t.fragile),
+                  label: Text('Écouter mes versets à revoir (${queue.length})'),
+                  onPressed: () => context.push(
+                    '/recite',
+                    extra: SelReview(
+                      'À revoir',
+                      queue.map((e) => e.verseKey).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Feuille « De / à » : borne une sourate sur une plage d'âyât précise.

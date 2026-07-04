@@ -274,6 +274,24 @@ class MasteryController extends AsyncNotifier<MasteryState> {
     return _persist(_s.copyWith(memorizedSurahs: set));
   }
 
+  /// Ensemencement au premier lancement : marque des sourates entières comme
+  /// déjà mémorisées (memorizedSurahs + toutes leurs âyât maîtrisées), en une
+  /// seule persistance. Allume la carte de chaleur et la file SRS d'un coup.
+  Future<void> seedKnownSurahs(Map<int, int> surahToAyahCount) {
+    if (surahToAyahCount.isEmpty) return Future.value();
+    final now = _now();
+    final mastered = {..._s.mastered};
+    final memorized = {..._s.memorizedSurahs};
+    surahToAyahCount.forEach((surah, count) {
+      memorized.add(surah);
+      for (var a = 1; a <= count; a++) {
+        mastered.putIfAbsent('$surah:$a', () => Mastered(now));
+      }
+    });
+    return _persist(
+        _s.copyWith(mastered: mastered, memorizedSurahs: memorized));
+  }
+
   Future<void> recordSession() {
     final days = {..._s.sessionDays, dayKey(_now())};
     return _persist(_s.copyWith(sessionDays: days));

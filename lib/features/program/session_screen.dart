@@ -58,20 +58,46 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                     style: TextStyle(color: t.inkSoft)),
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  child: InterlinearVerse(
-                    verse: v,
-                    onLongPress: () =>
-                        showVerseActions(context, verseKey: v.verseKey),
-                    wordByWord: settings.readerWordByWord,
-                    showTranslation: settings.readerTranslation,
-                    lang: settings.contentLang,
-                    latinAyahNumbers: settings.latinAyahNumbers,
-                    // Auto-test : voile actif en session par défaut.
-                    veilMode: settings.veilMode == VeilMode.full
-                        ? VeilMode.firstWords
-                        : settings.veilMode,
-                    veilWords: settings.veilWords,
+                // Swipe : gauche = fragile, droite = maîtrisé (mémoire
+                // musculaire type Anki) — les boutons restent en dessous.
+                child: Dismissible(
+                  key: ValueKey(v.verseKey),
+                  direction: DismissDirection.horizontal,
+                  background: _swipeHint(
+                    t,
+                    alignment: Alignment.centerLeft,
+                    icon: Icons.spa,
+                    label: 'Maîtrisé',
+                    color: t.fresh,
+                  ),
+                  secondaryBackground: _swipeHint(
+                    t,
+                    alignment: Alignment.centerRight,
+                    icon: Icons.bolt,
+                    label: 'Fragile',
+                    color: t.fragile,
+                  ),
+                  onDismissed: (dir) => _mark(
+                    v.verseKey,
+                    verses.length,
+                    mastered: dir == DismissDirection.startToEnd,
+                  ),
+                  child: SingleChildScrollView(
+                    child: InterlinearVerse(
+                      verse: v,
+                      onLongPress: () =>
+                          showVerseActions(context, verseKey: v.verseKey),
+                      wordByWord: settings.readerWordByWord,
+                      showTranslation: settings.readerTranslation,
+                      lang: settings.contentLang,
+                      latinAyahNumbers: settings.latinAyahNumbers,
+                      tajweed: settings.tajweedColors,
+                      // Auto-test : voile actif en session par défaut.
+                      veilMode: settings.veilMode == VeilMode.full
+                          ? VeilMode.firstWords
+                          : settings.veilMode,
+                      veilWords: settings.veilWords,
+                    ),
                   ),
                 ),
               ),
@@ -79,6 +105,42 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  /// Marque le verset et avance — chemin unique pour boutons et swipe.
+  void _mark(String verseKey, int total, {required bool mastered}) {
+    if (mastered) {
+      HapticFeedback.lightImpact();
+      ref.read(masteryControllerProvider.notifier).markMastered(verseKey);
+      _masteredCount++;
+    } else {
+      HapticFeedback.mediumImpact();
+      ref.read(masteryControllerProvider.notifier).markFragile(verseKey);
+      _fragileCount++;
+    }
+    _next(total);
+  }
+
+  Widget _swipeHint(
+    LanternTokens t, {
+    required Alignment alignment,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: LanternSpace.lg),
+      color: color.withValues(alpha: 0.12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 13)),
+        ],
       ),
     );
   }
@@ -95,14 +157,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 style: OutlinedButton.styleFrom(foregroundColor: t.fragile),
                 icon: const Icon(Icons.bolt),
                 label: const Text('Fragile'),
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  ref
-                      .read(masteryControllerProvider.notifier)
-                      .markFragile(verseKey);
-                  _fragileCount++;
-                  _next(total);
-                },
+                onPressed: () => _mark(verseKey, total, mastered: false),
               ),
             ),
             const SizedBox(width: LanternSpace.sm),
@@ -110,14 +165,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               child: FilledButton.icon(
                 icon: const Icon(Icons.spa),
                 label: const Text('Maîtrisé'),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  ref
-                      .read(masteryControllerProvider.notifier)
-                      .markMastered(verseKey);
-                  _masteredCount++;
-                  _next(total);
-                },
+                onPressed: () => _mark(verseKey, total, mastered: true),
               ),
             ),
           ],
