@@ -277,12 +277,13 @@ class MasteryController extends AsyncNotifier<MasteryState> {
   /// Ensemencement au premier lancement : marque des sourates entières comme
   /// déjà mémorisées, en une seule persistance.
   ///
-  /// Les dates de maîtrise sont ANTIDATÉES en escalier : les premiers versets
-  /// arrivent à échéance immédiatement, les derniers sous [_seedRampDays].
-  /// Sans cela, tout serait « frais » pendant des mois et l'onglet
-  /// Aujourd'hui resterait vide — le SRS doit vérifier ce que l'utilisateur
-  /// croit connaître, par petites vagues quotidiennes.
-  static const _seedRampDays = 14;
+  /// Les dates de maîtrise sont ANTIDATÉES par vagues journalières à effectif
+  /// garanti ([_seedDailyCap] versets/jour) : le jour 0 (aujourd'hui) est
+  /// TOUJOURS immédiatement dû, quelle que soit la quantité ensemencée — un
+  /// étalement purement proportionnel au total (14 j / N versets) donnerait
+  /// une seule échéance aujourd'hui pour un gros lot (ex. Juz Amma) et
+  /// laisserait l'onglet Aujourd'hui presque vide malgré l'ensemencement.
+  static const _seedDailyCap = 20;
 
   Future<void> seedKnownSurahs(Map<int, int> surahToAyahCount) {
     if (surahToAyahCount.isEmpty) return Future.value();
@@ -291,9 +292,8 @@ class MasteryController extends AsyncNotifier<MasteryState> {
         (ref.read(settingsControllerProvider).valueOrNull ?? const Settings())
             .masteryProfile;
     final freshMs = (freshDaysFor(profile) * 86400000).round();
-    const rampMs = _seedRampDays * 86400000;
+    const dayMs = 86400000;
 
-    final total = surahToAyahCount.values.fold<int>(0, (a, b) => a + b);
     final mastered = {..._s.mastered};
     final memorized = {..._s.memorizedSurahs};
     var i = 0;
@@ -301,8 +301,8 @@ class MasteryController extends AsyncNotifier<MasteryState> {
       memorized.add(surah);
       final count = surahToAyahCount[surah]!;
       for (var a = 1; a <= count; a++) {
-        // Échéance du verset i : dans (i/total) × ramp jours.
-        final due = now + (rampMs * i ~/ total);
+        // Verset i → vague (i ~/ cap) : jour 0 plein, puis 1 vague/jour.
+        final due = now + (i ~/ _seedDailyCap) * dayMs;
         mastered.putIfAbsent('$surah:$a', () => Mastered(due - freshMs));
         i++;
       }

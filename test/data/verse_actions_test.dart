@@ -89,7 +89,7 @@ void main() {
     expect(hasImplicitScar(null, Mastered(1000)), isFalse);
   });
 
-  test('seedKnownSurahs : échéances étalées, premières dues immédiatement',
+  test('seedKnownSurahs : petit lot (< cap) → tout dû dès aujourd’hui',
       () async {
     final c = _container();
     addTearDown(c.dispose);
@@ -97,26 +97,50 @@ void main() {
     await c.read(masteryControllerProvider.future);
     final now = c.read(clockProvider).nowMs();
 
-    await ctrl.seedKnownSurahs({1: 7, 114: 6});
+    await ctrl.seedKnownSurahs({1: 7});
     final s = c.read(masteryControllerProvider).value!;
 
-    expect(s.memorizedSurahs, {1, 114});
-    expect(s.mastered.length, 13);
-    // Premier verset ensemencé : déjà à échéance (fading, plus fresh).
+    expect(s.memorizedSurahs, {1});
+    expect(s.mastered.length, 7);
+    // 7 versets < la vague journalière (20) : aucun n'attend le lendemain.
+    for (var a = 1; a <= 7; a++) {
+      expect(
+        verseHeatState(null, s.mastered['1:$a'], MasteryProfile.serenity, now),
+        isNot(HeatState.fresh),
+        reason: '1:$a devrait être dû aujourd’hui',
+      );
+    }
+  });
+
+  test('seedKnownSurahs : gros lot → vague du jour garantie, reste étalé',
+      () async {
+    final c = _container();
+    addTearDown(c.dispose);
+    final ctrl = c.read(masteryControllerProvider.notifier);
+    await c.read(masteryControllerProvider.future);
+    final now = c.read(clockProvider).nowMs();
+
+    // 100 versets (5 sourates de 20) : bien plus que la vague de 20/jour.
+    await ctrl.seedKnownSurahs({for (var n = 1; n <= 5; n++) n: 20});
+    final s = c.read(masteryControllerProvider).value!;
+    expect(s.mastered.length, 100);
+
+    // La première vague (20 premiers versets, sourate 1 entière) est due
+    // aujourd'hui — pas un seul verset isolé.
+    var dueToday = 0;
+    for (var a = 1; a <= 20; a++) {
+      if (verseHeatState(null, s.mastered['1:$a'], MasteryProfile.serenity,
+              now) !=
+          HeatState.fresh) {
+        dueToday++;
+      }
+    }
+    expect(dueToday, 20);
+
+    // Le tout dernier verset (vague la plus lointaine) est encore frais.
     expect(
-      verseHeatState(null, s.mastered['1:1'], MasteryProfile.serenity, now),
-      isNot(HeatState.fresh),
-    );
-    // Dernier verset : encore frais (sa vague arrive dans ~2 semaines).
-    expect(
-      verseHeatState(null, s.mastered['114:6'], MasteryProfile.serenity, now),
+      verseHeatState(null, s.mastered['5:20'], MasteryProfile.serenity, now),
       HeatState.fresh,
-    );
-    // Les dates s'échelonnent strictement du premier au dernier.
-    expect(
-      s.mastered['1:1']!.masteredAtMs <
-          s.mastered['114:6']!.masteredAtMs,
-      isTrue,
     );
   });
 }
