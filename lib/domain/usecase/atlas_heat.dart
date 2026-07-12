@@ -15,21 +15,27 @@ List<SurahHeatTile> buildAtlasHeat(
   Map<String, Fragile> fragile,
   Map<String, Mastered> mastered,
   MasteryProfile profile,
-  int now,
-) {
-  // Sourates cicatrisées : maîtrisé avec count > 0 (O(mastered)).
+  int now, {
+  Set<String> manualScarred = const {},
+}) {
+  // Sourates cicatrisées : historique implicite ou marqueur manuel.
   final scarredSurahs = <int>{};
   for (final key in mastered.keys) {
     if (hasImplicitScar(fragile[key], mastered[key])) {
       scarredSurahs.add(int.parse(key.split(':')[0]));
     }
   }
+  for (final key in manualScarred) {
+    final surah = int.tryParse(key.split(':').first);
+    if (surah != null) scarredSurahs.add(surah);
+  }
   return metas
-      .map((m) => SurahHeatTile(
-            m,
-            surahHeat(
-                m.number, m.ayahCount, fragile, mastered, profile, now),
-            scarredSurahs.contains(m.number),
-          ))
+      .map(
+        (m) => SurahHeatTile(
+          m,
+          surahHeat(m.number, m.ayahCount, fragile, mastered, profile, now),
+          scarredSurahs.contains(m.number),
+        ),
+      )
       .toList(growable: false);
 }

@@ -27,8 +27,11 @@ void main() {
     final keys = surahVerseKeys(1, 2);
 
     var lastDone = 0;
-    final ok = await repo.downloadSurah('ar.alafasy', keys,
-        onProgress: (d, t) => lastDone = d);
+    final ok = await repo.downloadSurah(
+      'ar.alafasy',
+      keys,
+      onProgress: (d, t) => lastDone = d,
+    );
     expect(ok, isTrue);
     expect(lastDone, 2);
     expect(await repo.areVersesDownloaded('ar.alafasy', keys), isTrue);
@@ -43,9 +46,25 @@ void main() {
   test('downloadSurah rejette une réponse non-MP3', () async {
     final tmp = await Directory.systemTemp.createTemp('juzreviz_audio2');
     addTearDown(() => tmp.deleteSync(recursive: true));
-    final client = MockClient((req) async => http.Response('<html>err</html>', 200));
+    final client = MockClient(
+      (req) async => http.Response('<html>err</html>', 200),
+    );
     final repo = AudioCacheRepository(client: client, root: tmp);
     final ok = await repo.downloadSurah('ar.alafasy', surahVerseKeys(1, 1));
     expect(ok, isFalse);
+  });
+
+  test('un ancien cache corrompu est retéléchargé', () async {
+    final tmp = await Directory.systemTemp.createTemp('juzreviz_audio3');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final corrupt = File('${tmp.path}/ar.alafasy/1/1_1.mp3');
+    await corrupt.parent.create(recursive: true);
+    await corrupt.writeAsString('<html>ancienne erreur</html>');
+    final client = MockClient((_) async => http.Response.bytes(_mp3, 200));
+    final repo = AudioCacheRepository(client: client, root: tmp);
+
+    expect(await repo.cachedFile('ar.alafasy', '1:1'), isNull);
+    expect(await repo.downloadSurah('ar.alafasy', const ['1:1']), isTrue);
+    expect(await repo.cachedFile('ar.alafasy', '1:1'), isNotNull);
   });
 }

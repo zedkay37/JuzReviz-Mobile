@@ -90,7 +90,8 @@ class _QuranScreenState extends ConsumerState<QuranScreen> {
           IconButton(
             tooltip: _grid ? 'Vue liste' : 'Carte de chaleur',
             icon: Icon(
-                _grid ? Icons.view_list_outlined : Icons.grid_view_outlined),
+              _grid ? Icons.view_list_outlined : Icons.grid_view_outlined,
+            ),
             onPressed: () => setState(() => _grid = !_grid),
           ),
         ],
@@ -116,14 +117,25 @@ class _SurahListBody extends ConsumerWidget {
 
     return metasAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+      error: (_, _) => LanternEmpty(
+        message:
+            'Impossible de charger la liste des sourates. Réessayez dans un instant.',
+        action: OutlinedButton.icon(
+          onPressed: () => ref.invalidate(surahMetasProvider),
+          icon: const Icon(Icons.refresh),
+          label: const Text('Réessayer'),
+        ),
+      ),
       data: (metas) {
         final resume = metas.where((m) => m.number == resumeSurah).firstOrNull;
         return ListView.builder(
           itemCount: metas.length + (resume != null ? 1 : 0),
           itemBuilder: (_, i) {
             if (resume != null && i == 0) {
-              return _ResumeCard(meta: resume, verseKey: settings.currentVerseKey);
+              return _ResumeCard(
+                meta: resume,
+                verseKey: settings.currentVerseKey,
+              );
             }
             final m = metas[i - (resume != null ? 1 : 0)];
             return _SurahRow(meta: m, warmth: heat[m.number] ?? 0);
@@ -156,7 +168,7 @@ class _ResumeCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(LanternSpace.radius),
           onTap: () => context.push(
-            '/read',
+            Uri(path: '/read', queryParameters: {'at': verseKey}).toString(),
             extra: SelSurah(meta.number, 1, meta.ayahCount),
           ),
           child: Container(
@@ -230,7 +242,7 @@ class _SurahRow extends StatelessWidget {
       title: Text(meta.transliteration, style: TextStyle(color: t.ink)),
       subtitle: Text(
         '${meta.ayahCount} versets · ${meta.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}'
-        '${warmth > 0.02 ? ' · ${(warmth * 100).round()}% mémorisé' : ''}',
+        '${warmth > 0.02 ? ' · fraîcheur ${(warmth * 100).round()}%' : ''}',
         style: TextStyle(color: t.inkSoft, fontSize: 12),
       ),
       trailing: Text(

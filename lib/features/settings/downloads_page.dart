@@ -17,6 +17,69 @@ String formatBytes(int b) {
   return '${(b / (1024 * 1024)).toStringAsFixed(1)} Mo';
 }
 
+Future<void> showDownloadOutcome(
+  BuildContext context,
+  Future<DownloadOutcome> operation,
+) async {
+  final outcome = await operation;
+  if (!context.mounted || outcome != DownloadOutcome.failed) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Téléchargement interrompu. Vérifie la connexion et l’espace libre, '
+        'puis réessaie.',
+      ),
+    ),
+  );
+}
+
+Future<bool> _confirmDelete(BuildContext context, String what) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmer la suppression'),
+        content: Text('Supprimer $what de cet appareil ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+Future<bool> _confirmQuranDownload(
+  BuildContext context,
+  int verseCount,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Télécharger tout le Coran ?'),
+        content: Text(
+          '$verseCount fichiers audio seront téléchargés. Selon le récitateur, '
+          'cela représente plusieurs centaines de Mo et peut dépasser 1 Go.\n\n'
+          'Utilise de préférence le Wi-Fi et vérifie l’espace libre.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Télécharger'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
 enum _Scope { surah, juz }
 
 /// Gestionnaire de téléchargement audio (récitation offline) : sourate / juz / Coran.
@@ -39,6 +102,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
     final reciter = _reciter ?? settings.reciter;
     final metasAsync = ref.watch(surahMetasProvider);
     final total = ref.watch(totalCacheBytesProvider).valueOrNull ?? 0;
+    final downloads = ref.watch(downloadsControllerProvider);
 
     return LanternScaffold(
       appBar: AppBar(title: const Text('Téléchargements')),
@@ -54,18 +118,33 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+              horizontal: LanternSpace.md,
+              vertical: LanternSpace.sm,
+            ),
             child: Row(
               children: [
                 Icon(Icons.sd_storage_outlined, color: t.inkSoft, size: 18),
                 const SizedBox(width: 8),
-                Text('Cache audio : ${formatBytes(total)}',
-                    style: TextStyle(color: t.inkSoft, fontSize: 13)),
+                Text(
+                  'Cache audio : ${formatBytes(total)}',
+                  style: TextStyle(color: t.inkSoft, fontSize: 13),
+                ),
                 const Spacer(),
                 if (total > 0)
                   TextButton(
-                    onPressed: () =>
-                        ref.read(downloadsControllerProvider.notifier).clearAll(),
+                    onPressed: downloads.active != null
+                        ? null
+                        : () async {
+                            if (!await _confirmDelete(
+                              context,
+                              'tout le cache audio',
+                            )) {
+                              return;
+                            }
+                            await ref
+                                .read(downloadsControllerProvider.notifier)
+                                .clearAll();
+                          },
                     child: const Text('Tout supprimer'),
                   ),
               ],
@@ -73,22 +152,35 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
           ),
           metasAsync.when(
             loading: () => const Expanded(
-                child: Center(child: CircularProgressIndicator())),
-            error: (e, _) => Expanded(child: LanternEmpty(message: 'Erreur : $e')),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) =>
+                Expanded(child: LanternEmpty(message: 'Erreur : $e')),
             data: (metas) => Expanded(
               child: Column(
                 children: [
                   _QuranTile(reciter: reciter, metas: metas),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
-                        LanternSpace.md, 0, LanternSpace.md, LanternSpace.sm),
+                      LanternSpace.md,
+                      0,
+                      LanternSpace.md,
+                      LanternSpace.sm,
+                    ),
                     child: SegmentedButton<_Scope>(
                       segments: const [
-                        ButtonSegment(value: _Scope.surah, label: Text('Par sourate')),
-                        ButtonSegment(value: _Scope.juz, label: Text('Par juz')),
+                        ButtonSegment(
+                          value: _Scope.surah,
+                          label: Text('Par sourate'),
+                        ),
+                        ButtonSegment(
+                          value: _Scope.juz,
+                          label: Text('Par juz'),
+                        ),
                       ],
                       selected: {_scope},
-                      onSelectionChanged: (s) => setState(() => _scope = s.first),
+                      onSelectionChanged: (s) =>
+                          setState(() => _scope = s.first),
                     ),
                   ),
                   Expanded(
@@ -101,7 +193,10 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
                         : ListView.builder(
                             itemCount: 30,
                             itemBuilder: (_, i) => _JuzRow(
-                                reciter: reciter, juz: i + 1, metas: metas),
+                              reciter: reciter,
+                              juz: i + 1,
+                              metas: metas,
+                            ),
                           ),
                   ),
                 ],
@@ -147,14 +242,20 @@ class _DownloadTrailing extends StatelessWidget {
             width: 22,
             height: 22,
             child: CircularProgressIndicator(
-                value: progress == 0 ? null : progress,
-                strokeWidth: 2.5,
-                color: t.accent),
+              value: progress == 0 ? null : progress,
+              strokeWidth: 2.5,
+              color: t.accent,
+            ),
           ),
           const SizedBox(width: 4),
-          Text('${(progress * 100).round()}%',
-              style: TextStyle(color: t.inkSoft, fontSize: 12)),
-          IconButton(icon: Icon(Icons.close, color: t.inkSoft), onPressed: onCancel),
+          Text(
+            '${(progress * 100).round()}%',
+            style: TextStyle(color: t.inkSoft, fontSize: 12),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: t.inkSoft),
+            onPressed: onCancel,
+          ),
         ],
       );
     }
@@ -165,8 +266,9 @@ class _DownloadTrailing extends StatelessWidget {
           if (sizeLabel != null)
             Text(sizeLabel!, style: TextStyle(color: t.inkSoft, fontSize: 12)),
           IconButton(
-              icon: Icon(Icons.delete_outline, color: t.inkSoft),
-              onPressed: onDelete),
+            icon: Icon(Icons.delete_outline, color: t.inkSoft),
+            onPressed: onDelete,
+          ),
         ],
       );
     }
@@ -184,44 +286,68 @@ class _MushafPackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
-    final downloaded =
-        ref.watch(mushafAvailableProvider).valueOrNull ?? false;
+    final downloaded = ref.watch(mushafAvailableProvider).valueOrNull ?? false;
     final progress = ref.watch(mushafDownloadProvider); // 0..1 ou null
     final bytes = ref.watch(mushafCacheBytesProvider).valueOrNull ?? 0;
     final ctrl = ref.read(mushafDownloadProvider.notifier);
 
     Widget trailing;
     if (progress != null) {
-      trailing = Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
               value: progress == 0 ? null : progress,
               strokeWidth: 2.5,
-              color: t.accent),
-        ),
-        const SizedBox(width: 4),
-        Text('${(progress * 100).round()}%',
-            style: TextStyle(color: t.inkSoft, fontSize: 12)),
-        IconButton(icon: Icon(Icons.close, color: t.inkSoft), onPressed: ctrl.cancel),
-      ]);
+              color: t.accent,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${(progress * 100).round()}%',
+            style: TextStyle(color: t.inkSoft, fontSize: 12),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: t.inkSoft),
+            onPressed: ctrl.cancel,
+          ),
+        ],
+      );
     } else if (downloaded) {
-      trailing = Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(formatBytes(bytes), style: TextStyle(color: t.inkSoft, fontSize: 12)),
-        IconButton(
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            formatBytes(bytes),
+            style: TextStyle(color: t.inkSoft, fontSize: 12),
+          ),
+          IconButton(
             icon: Icon(Icons.delete_outline, color: t.inkSoft),
-            onPressed: ctrl.delete),
-      ]);
+            onPressed: () async {
+              if (await _confirmDelete(context, 'le pack Mushaf')) {
+                await ctrl.delete();
+              }
+            },
+          ),
+        ],
+      );
     } else {
       trailing = IconButton(
-          icon: Icon(Icons.download_outlined, color: t.accent),
-          onPressed: ctrl.download);
+        icon: Icon(Icons.download_outlined, color: t.accent),
+        onPressed: () => showDownloadOutcome(context, ctrl.download()),
+      );
     }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.md, LanternSpace.md, LanternSpace.sm),
+        LanternSpace.md,
+        LanternSpace.md,
+        LanternSpace.md,
+        LanternSpace.sm,
+      ),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(LanternSpace.radius),
@@ -229,10 +355,14 @@ class _MushafPackTile extends ConsumerWidget {
       ),
       child: ListTile(
         leading: Icon(Icons.auto_stories, color: t.accent),
-        title: Text('Pack Mushaf (lecture moushaf)',
-            style: TextStyle(color: t.ink)),
-        subtitle: Text('Polices QCF · ~90 Mo · active les dispositions Mushaf',
-            style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        title: Text(
+          'Pack Mushaf (lecture moushaf)',
+          style: TextStyle(color: t.ink),
+        ),
+        subtitle: Text(
+          'Polices QCF · ~90 Mo · active les dispositions Mushaf',
+          style: TextStyle(color: t.inkSoft, fontSize: 12),
+        ),
         trailing: trailing,
       ),
     );
@@ -248,12 +378,17 @@ class _QuranTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
     final dl = ref.watch(downloadsControllerProvider);
-    final done = ref.watch(quranDownloadStatusProvider(reciter)).valueOrNull ?? false;
+    final done =
+        ref.watch(quranDownloadStatusProvider(reciter)).valueOrNull ?? false;
     final ctrl = ref.read(downloadsControllerProvider.notifier);
     final keys = quranVerseKeys(metas);
     return Container(
       margin: const EdgeInsets.fromLTRB(
-          LanternSpace.md, LanternSpace.sm, LanternSpace.md, LanternSpace.sm),
+        LanternSpace.md,
+        LanternSpace.sm,
+        LanternSpace.md,
+        LanternSpace.sm,
+      ),
       decoration: BoxDecoration(
         color: t.surface,
         borderRadius: BorderRadius.circular(LanternSpace.radius),
@@ -262,16 +397,31 @@ class _QuranTile extends ConsumerWidget {
       child: ListTile(
         leading: Icon(Icons.menu_book, color: t.accent),
         title: Text('Tout le Coran', style: TextStyle(color: t.ink)),
-        subtitle: Text('${keys.length} versets',
-            style: TextStyle(color: t.inkSoft, fontSize: 12)),
+        subtitle: Text(
+          '${keys.length} versets',
+          style: TextStyle(color: t.inkSoft, fontSize: 12),
+        ),
         trailing: _DownloadTrailing(
           active: dl.active == 'quran',
           progress: dl.progress,
           done: done,
           busy: dl.active != null && dl.active != 'quran',
-          onDownload: () => ctrl.download(reciter, 'quran', keys),
+          onDownload: () async {
+            if (!await _confirmQuranDownload(context, keys.length) ||
+                !context.mounted) {
+              return;
+            }
+            await showDownloadOutcome(
+              context,
+              ctrl.download(reciter, 'quran', keys),
+            );
+          },
           onCancel: ctrl.cancel,
-          onDelete: () => ctrl.deleteKeys(reciter, keys),
+          onDelete: () async {
+            if (await _confirmDelete(context, 'tout l’audio du Coran')) {
+              await ctrl.deleteKeys(reciter, keys);
+            }
+          },
         ),
       ),
     );
@@ -279,7 +429,11 @@ class _QuranTile extends ConsumerWidget {
 }
 
 class _JuzRow extends ConsumerWidget {
-  const _JuzRow({required this.reciter, required this.juz, required this.metas});
+  const _JuzRow({
+    required this.reciter,
+    required this.juz,
+    required this.metas,
+  });
   final String reciter;
   final int juz;
   final List<SurahMeta> metas;
@@ -288,7 +442,8 @@ class _JuzRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
     final dl = ref.watch(downloadsControllerProvider);
-    final done = ref
+    final done =
+        ref
             .watch(juzDownloadStatusProvider((reciter: reciter, juz: juz)))
             .valueOrNull ??
         false;
@@ -301,14 +456,17 @@ class _JuzRow extends ConsumerWidget {
         child: Text('$juz', style: TextStyle(color: t.accent, fontSize: 13)),
       ),
       title: Text('Juz $juz', style: TextStyle(color: t.ink)),
-      subtitle: Text('${keys.length} versets',
-          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+      subtitle: Text(
+        '${keys.length} versets',
+        style: TextStyle(color: t.inkSoft, fontSize: 12),
+      ),
       trailing: _DownloadTrailing(
         active: dl.active == id,
         progress: dl.progress,
         done: done,
         busy: dl.active != null && dl.active != id,
-        onDownload: () => ctrl.download(reciter, id, keys),
+        onDownload: () =>
+            showDownloadOutcome(context, ctrl.download(reciter, id, keys)),
         onCancel: ctrl.cancel,
         onDelete: () => ctrl.deleteKeys(reciter, keys),
       ),
@@ -326,7 +484,9 @@ class _SurahRow extends ConsumerWidget {
     final t = context.lantern;
     final dl = ref.watch(downloadsControllerProvider);
     final status = ref
-        .watch(surahDownloadStatusProvider((reciter: reciter, surah: meta.number)))
+        .watch(
+          surahDownloadStatusProvider((reciter: reciter, surah: meta.number)),
+        )
         .valueOrNull;
     final ctrl = ref.read(downloadsControllerProvider.notifier);
     final keys = surahVerseKeys(meta.number, meta.ayahCount);
@@ -335,19 +495,24 @@ class _SurahRow extends ConsumerWidget {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: t.surfaceHigh,
-        child: Text('${meta.number}',
-            style: TextStyle(color: t.accent, fontSize: 13)),
+        child: Text(
+          '${meta.number}',
+          style: TextStyle(color: t.accent, fontSize: 13),
+        ),
       ),
       title: Text(meta.transliteration, style: TextStyle(color: t.ink)),
-      subtitle: Text('${meta.ayahCount} versets',
-          style: TextStyle(color: t.inkSoft, fontSize: 12)),
+      subtitle: Text(
+        '${meta.ayahCount} versets',
+        style: TextStyle(color: t.inkSoft, fontSize: 12),
+      ),
       trailing: _DownloadTrailing(
         active: dl.active == id,
         progress: dl.progress,
         done: status?.done ?? false,
         busy: dl.active != null && dl.active != id,
         sizeLabel: (status?.bytes ?? 0) > 0 ? formatBytes(status!.bytes) : null,
-        onDownload: () => ctrl.download(reciter, id, keys),
+        onDownload: () =>
+            showDownloadOutcome(context, ctrl.download(reciter, id, keys)),
         onCancel: ctrl.cancel,
         onDelete: () => ctrl.deleteKeys(reciter, keys),
       ),

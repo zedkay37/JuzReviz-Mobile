@@ -31,8 +31,8 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
   @override
   Widget build(BuildContext context) {
     final tilesAsync = ref.watch(atlasHeatProvider);
-    final memorized = ref.watch(masteryControllerProvider).valueOrNull
-            ?.memorizedSurahs ??
+    final memorized =
+        ref.watch(masteryControllerProvider).valueOrNull?.memorizedSurahs ??
         const <int>{};
 
     return Column(
@@ -40,7 +40,9 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
         const ReviewBanner(),
         Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+            horizontal: LanternSpace.md,
+            vertical: LanternSpace.sm,
+          ),
           child: TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
@@ -54,15 +56,27 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
           padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
           child: Row(
             children: [
-              _chip('Toutes', _rev == _RevFilter.all,
-                  () => setState(() => _rev = _RevFilter.all)),
-              _chip('Mecquoises', _rev == _RevFilter.meccan,
-                  () => setState(() => _rev = _RevFilter.meccan)),
-              _chip('Médinoises', _rev == _RevFilter.medinan,
-                  () => setState(() => _rev = _RevFilter.medinan)),
+              _chip(
+                'Toutes',
+                _rev == _RevFilter.all,
+                () => setState(() => _rev = _RevFilter.all),
+              ),
+              _chip(
+                'Mecquoises',
+                _rev == _RevFilter.meccan,
+                () => setState(() => _rev = _RevFilter.meccan),
+              ),
+              _chip(
+                'Médinoises',
+                _rev == _RevFilter.medinan,
+                () => setState(() => _rev = _RevFilter.medinan),
+              ),
               const SizedBox(width: 12),
-              _chip('Mémorisées', _memorizedOnly,
-                  () => setState(() => _memorizedOnly = !_memorizedOnly)),
+              _chip(
+                'Mémorisées',
+                _memorizedOnly,
+                () => setState(() => _memorizedOnly = !_memorizedOnly),
+              ),
             ],
           ),
         ),
@@ -73,7 +87,15 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
             skipLoadingOnReload: true,
             skipLoadingOnRefresh: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+            error: (_, _) => LanternEmpty(
+              message:
+                  'Impossible d’afficher la carte de mémorisation. Réessayez dans un instant.',
+              action: OutlinedButton.icon(
+                onPressed: () => ref.invalidate(atlasHeatProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ),
             data: (tiles) => _grid(_filter(tiles, memorized)),
           ),
         ),
@@ -83,20 +105,23 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
 
   List<SurahHeatTile> _filter(List<SurahHeatTile> tiles, Set<int> memorized) {
     final q = foldSearch(_query);
-    return tiles.where((t) {
-      final m = t.meta;
-      if (_rev == _RevFilter.meccan && m.revelation != Revelation.meccan) {
-        return false;
-      }
-      if (_rev == _RevFilter.medinan && m.revelation != Revelation.medinan) {
-        return false;
-      }
-      if (_memorizedOnly && !memorized.contains(m.number)) return false;
-      if (q.isEmpty) return true;
-      return foldSearch(m.transliteration).contains(q) ||
-          foldSearch(m.englishName).contains(q) ||
-          '${m.number}' == q;
-    }).toList(growable: false);
+    return tiles
+        .where((t) {
+          final m = t.meta;
+          if (_rev == _RevFilter.meccan && m.revelation != Revelation.meccan) {
+            return false;
+          }
+          if (_rev == _RevFilter.medinan &&
+              m.revelation != Revelation.medinan) {
+            return false;
+          }
+          if (_memorizedOnly && !memorized.contains(m.number)) return false;
+          if (q.isEmpty) return true;
+          return foldSearch(m.transliteration).contains(q) ||
+              foldSearch(m.englishName).contains(q) ||
+              '${m.number}' == q;
+        })
+        .toList(growable: false);
   }
 
   Widget _grid(List<SurahHeatTile> tiles) {
@@ -145,21 +170,22 @@ class _HeatLegend extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     Widget dot(HeatState s, String label) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration:
-                  BoxDecoration(color: t.heat(s), shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: t.inkSoft, fontSize: 11)),
-          ],
-        );
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: t.heat(s), shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: t.inkSoft, fontSize: 11)),
+      ],
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+        horizontal: LanternSpace.md,
+        vertical: LanternSpace.sm,
+      ),
       child: Wrap(
         spacing: 14,
         runSpacing: 6,

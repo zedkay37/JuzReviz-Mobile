@@ -8,7 +8,7 @@ Voir [SPEC.md](SPEC.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [ROADMAP.md](RO
 
 ## État
 
-`flutter analyze` : **0 issue** · `flutter test` : **23 tests verts** ·
+`flutter analyze` : **0 issue** · `flutter test` : **suite verte** ·
 `flutter build apk --debug` : **OK** · corpus : **6236 versets / 77 429 mots /
 114 sourates** (généré, idempotent).
 
@@ -40,8 +40,13 @@ flutter run
 
 Pipeline `tools/build_corpus/build_corpus.dart` (Dart pur) : lit Tanzil uthmani +
 métadonnées sourates/juz/sajda + gloses word-by-word du desktop → `assets/corpus/`
-+ `manifest.json` (hash FNV-1a, déterministe). Attribution : Tanzil.net · corpus
-word-by-word (CC BY-NC). Aucune donnée ne quitte l'appareil.
++ `manifest.json` (hash FNV-1a, déterministe). Texte uthmani : Tanzil Project
+(CC BY 3.0, notice embarquée). Les licences et provenances exactes des gloses,
+traductions et tafsirs doivent rester documentées avant toute distribution.
+
+La progression est stockée localement, sans compte, publicité ni SDK de suivi.
+Le cœur textuel fonctionne hors ligne ; les téléchargements audio et Mushaf
+contactent leurs hébergeurs en HTTPS.
 
 ## Tests
 

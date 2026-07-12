@@ -46,8 +46,10 @@ class ReaderScreen extends ConsumerStatefulWidget {
     super.key,
     required this.selection,
     this.mode = ReaderMode.study,
+    this.initialVerseKey,
   });
   final Selection selection;
+  final String? initialVerseKey;
 
   /// Étude silencieuse ou récitation (audio + karaoké dès l'ouverture).
   final ReaderMode mode;
@@ -79,11 +81,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   StreamSubscription<ProcessingState>? _procSub;
   Timer? _resumeDebounce;
   Timer? _pauseTimer; // temporisation après chaque âyah
+  int? _pendingNext;
+  int _planGeneration = 0;
+  int _playRequestGeneration = 0;
 
   // Reprise surfacée : puce « Reprendre » (auto-dismiss), tap → recale.
   String? _resumeKey;
   bool _resumeResolved = false;
   Timer? _resumeChipTimer;
+  bool _initialPositionApplied = false;
 
   // Sélection de plage : clé du verset de départ (null = pas en sélection).
   // État éphémère, réinitialisé à la sortie du Reader (dispose).
@@ -116,6 +122,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _resumeDebounce?.cancel();
     _resumeChipTimer?.cancel();
     _pauseTimer?.cancel();
+    _planGeneration++;
+    _playRequestGeneration++;
+    _pendingNext = null;
     ref.read(audioControllerProvider).stop();
     super.dispose();
   }
@@ -146,6 +155,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   // --- Moteur audio séquentiel. ---
   void _onProcessingState(ProcessingState state) {
     if (state != ProcessingState.completed || !_playing) return;
+    if (ref.read(audioControllerProvider).currentVerseKey != _activeKey) return;
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
     // Boucle âyah : rejoue le verset courant sans avancer ni maîtriser.
@@ -170,18 +180,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (next < _plan.length) {
       final pause = settings.repeatPauseMs;
       if (pause > 0) {
+        final generation = _planGeneration;
+        _pendingNext = next;
         _pauseTimer?.cancel();
         _pauseTimer = Timer(Duration(milliseconds: pause), () {
-          if (mounted && _playing) _playAt(next, settings);
+          _pauseTimer = null;
+          if (!mounted ||
+              !_playing ||
+              generation != _planGeneration ||
+              _pendingNext != next) {
+            return;
+          }
+          _pendingNext = null;
+          _playAt(next, settings, planGeneration: generation);
         });
       } else {
-        _playAt(next, settings);
+        _pendingNext = null;
+        _playAt(next, settings, planGeneration: _planGeneration);
       }
     } else {
       // Fin de sourate → enchaîne sur la suivante (façon concurrent).
       final surah = _currentSurah;
+      final meta = ref
+          .read(surahMetasProvider)
+          .valueOrNull
+          ?.where((m) => m.number == surah)
+          .firstOrNull;
       final atSurahEnd =
-          _verses.isNotEmpty && finished == _verses.last.verseKey;
+          _verses.isNotEmpty &&
+          finished == _verses.last.verseKey &&
+          meta != null &&
+          _verses.last.ayah == meta.ayahCount;
       if (surah != null && surah < 114 && atSurahEnd) {
         _goToSurah(surah + 1, autoPlay: true);
         return;
@@ -195,6 +224,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Future<void> _startFrom(int verseIndex) async {
+    final generation = _beginPlan();
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
     final keys = _verses.sublist(verseIndex).map((v) => v.verseKey).toList();
@@ -205,10 +235,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       rangeCount: settings.rangeCount,
     );
     if (_plan.isEmpty) return;
-    await _playAt(0, settings);
+    await _playAt(0, settings, planGeneration: generation);
   }
 
-  Future<void> _playAt(int ptr, Settings settings) async {
+  Future<void> _playAt(
+    int ptr,
+    Settings settings, {
+    required int planGeneration,
+  }) async {
+    if (planGeneration != _planGeneration || ptr < 0 || ptr >= _plan.length) {
+      return;
+    }
+    final request = ++_playRequestGeneration;
     final key = _plan[ptr];
     setState(() {
       _ptr = ptr;
@@ -222,7 +260,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       key,
       rate: settings.playbackRate,
     );
-    if (!mounted) return;
+    if (!mounted ||
+        planGeneration != _planGeneration ||
+        request != _playRequestGeneration) {
+      return;
+    }
     if (!ok) {
       setState(() {
         _playing = false;
@@ -235,6 +277,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
+  int _beginPlan() {
+    _pauseTimer?.cancel();
+    _pauseTimer = null;
+    _pendingNext = null;
+    _playRequestGeneration++;
+    return ++_planGeneration;
+  }
+
   void _scrollToKey(String key) {
     final index = _verses.indexWhere((v) => v.verseKey == key);
     if (index < 0 || !_scroll.isAttached) return;
@@ -245,6 +295,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       // Verset actif calé dans le premier tiers de l'écran.
       alignment: scrollAlignmentFor(ScrollTempo.sync, 0.5),
     );
+  }
+
+  void _jumpToKey(String key) {
+    final index = _verses.indexWhere((v) => v.verseKey == key);
+    if (index < 0 || !_scroll.isAttached) return;
+    _scroll.jumpTo(index: index + _lead, alignment: 0.02);
+  }
+
+  void _applyInitialPosition(List<Verse> verses) {
+    if (_initialPositionApplied) return;
+    _initialPositionApplied = true;
+    final key = widget.initialVerseKey;
+    if (key == null || !verses.any((v) => v.verseKey == key)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _jumpToKey(key);
+    });
   }
 
   String _readableTitle() {
@@ -322,7 +388,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final metas = ref.read(surahMetasProvider).valueOrNull;
     final count =
         metas?.where((m) => m.number == number).firstOrNull?.ayahCount ?? 1;
-    _pauseTimer?.cancel();
+    _beginPlan();
     await ref.read(audioControllerProvider).stop();
     if (!mounted) return;
     ref
@@ -390,7 +456,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final span = (last - first) < 1 ? 1 : (last - first);
     final target = (delta > 0 ? last : first - span).clamp(
       0,
-      _verses.length - 1,
+      _verses.length + _lead - 1,
     );
     _scroll.scrollTo(
       index: target,
@@ -420,14 +486,26 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _togglePlay() async {
     final audio = ref.read(audioControllerProvider);
     if (_playing) {
+      _playRequestGeneration++;
       _pauseTimer?.cancel();
+      _pauseTimer = null;
       await audio.pause();
       if (mounted) setState(() => _playing = false);
       return;
     }
     if (_ptr >= 0 && _ptr < _plan.length) {
-      await audio.resume();
-      if (mounted) setState(() => _playing = true);
+      final settings =
+          ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
+      final pendingNext = _pendingNext;
+      if (pendingNext != null) {
+        _pendingNext = null;
+        await _playAt(pendingNext, settings, planGeneration: _planGeneration);
+      } else if (audio.currentVerseKey != _plan[_ptr]) {
+        await _playAt(_ptr, settings, planGeneration: _planGeneration);
+      } else {
+        await audio.resume();
+        if (mounted) setState(() => _playing = true);
+      }
       return;
     }
     final start = _firstVisibleIndex();
@@ -521,7 +599,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       ),
                     ],
             ),
-      bottomNavigationBar: useMushaf ? null : _bottomBar(),
+      bottomNavigationBar: useMushaf || focus ? null : _bottomBar(),
       body: GestureDetector(
         onTap: () => setState(() => _chromeVisible = !_chromeVisible),
         child: Stack(
@@ -529,7 +607,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             SafeArea(
               child: versesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+                error: (_, _) => LanternEmpty(
+                  message:
+                      'Impossible de charger les versets. Réessayez dans un instant.',
+                  action: OutlinedButton.icon(
+                    onPressed: () =>
+                        ref.invalidate(readerVersesProvider(_selection)),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Réessayer'),
+                  ),
+                ),
                 data: (verses) {
                   _verses = verses;
                   if (verses.isEmpty) {
@@ -543,11 +630,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   }
                   if (useMushaf) {
                     return MushafView(
-                      initialVerseKey: verses.first.verseKey,
+                      initialVerseKey:
+                          widget.initialVerseKey != null &&
+                              verses.any(
+                                (v) => v.verseKey == widget.initialVerseKey,
+                              )
+                          ? widget.initialVerseKey
+                          : verses.first.verseKey,
+                      onVerseChanged: (key) => ref
+                          .read(settingsControllerProvider.notifier)
+                          .edit((p) => p.copyWith(currentVerseKey: key)),
                       onVerseLongPress: (k) =>
                           showVerseActions(context, verseKey: k),
                     );
                   }
+                  _applyInitialPosition(verses);
                   _resolveResume(verses);
                   if (focus) return _buildList(verses, cfg);
                   if (_recitation) {
@@ -563,9 +660,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           _BatteryTipCard(
                             onDismiss: () => ref
                                 .read(settingsControllerProvider.notifier)
-                                .edit(
-                                  (p) => p.copyWith(batteryTipSeen: true),
-                                ),
+                                .edit((p) => p.copyWith(batteryTipSeen: true)),
                           ),
                         Expanded(child: _buildList(verses, cfg)),
                       ],
@@ -590,12 +685,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               Positioned(
                 top: MediaQuery.of(context).padding.top + 4,
                 right: 8,
-                child: AnimatedOpacity(
-                  opacity: _chromeVisible ? 1 : 0,
-                  duration: reduceMotion ? Duration.zero : LanternMotion.fast,
-                  child: IconButton(
-                    icon: Icon(Icons.fullscreen_exit, color: t.inkSoft),
-                    onPressed: () => setState(() => _focus = false),
+                child: IgnorePointer(
+                  ignoring: !_chromeVisible,
+                  child: AnimatedOpacity(
+                    opacity: _chromeVisible ? 1 : 0,
+                    duration: reduceMotion ? Duration.zero : LanternMotion.fast,
+                    child: IconButton(
+                      icon: Icon(Icons.fullscreen_exit, color: t.inkSoft),
+                      onPressed: () => setState(() => _focus = false),
+                    ),
                   ),
                 ),
               ),
@@ -633,6 +731,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _resolveResume(List<Verse> verses) {
     if (_resumeResolved) return;
+    if (widget.initialVerseKey != null) {
+      _resumeResolved = true;
+      return;
+    }
     final s = ref.read(settingsControllerProvider).valueOrNull;
     if (s == null) {
       return; // réessaie au prochain build (settings pas encore prêt)
@@ -727,7 +829,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           active: _activeKey == v.verseKey,
                           // Tap sur un mot = audio de prononciation du mot
                           // (réglage « Audio-mot » explicite).
-                          onWordTap: selecting || !cfg.wordAudio
+                          onWordTap: selecting || !cfg.wordAudio || _ptr >= 0
                               ? null
                               : (pos) => _playWordAudio(v, pos),
                           onLongPress: selecting ? null : () => _capture(v),
@@ -760,14 +862,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// Lit une seule âyah puis s'arrête (depuis le menu verset).
   Future<void> _playSingle(String key) async {
+    final generation = _beginPlan();
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
     _plan = [key];
-    await _playAt(0, settings);
+    await _playAt(0, settings, planGeneration: generation);
   }
 
   Future<void> _stopAudio() async {
-    _pauseTimer?.cancel();
+    _beginPlan();
     await ref.read(audioControllerProvider).stop();
     if (mounted) {
       setState(() {
@@ -829,10 +932,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// bouton de saut rapide en mode Réciter.
   (int, int)? _ayahPosition() {
     if (_verses.isEmpty) return null;
-    final idx = (_activeKey != null
-            ? _verses.indexWhere((v) => v.verseKey == _activeKey)
-            : _firstVisibleIndex())
-        .clamp(0, _verses.length - 1);
+    final idx =
+        (_activeKey != null
+                ? _verses.indexWhere((v) => v.verseKey == _activeKey)
+                : _firstVisibleIndex())
+            .clamp(0, _verses.length - 1);
     final v = _verses[idx];
     final last = _verses.lastWhere((x) => x.surah == v.surah, orElse: () => v);
     return (v.ayah, last.ayah);
@@ -841,10 +945,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// Feuille discrète : glisser pour sauter à une âyah de la sourate en cours.
   Future<void> _showAyahJump(BuildContext context) async {
     if (_verses.isEmpty) return;
-    final curIdx = (_activeKey != null
-            ? _verses.indexWhere((v) => v.verseKey == _activeKey)
-            : _firstVisibleIndex())
-        .clamp(0, _verses.length - 1);
+    final curIdx =
+        (_activeKey != null
+                ? _verses.indexWhere((v) => v.verseKey == _activeKey)
+                : _firstVisibleIndex())
+            .clamp(0, _verses.length - 1);
     final surah = _verses[curIdx].surah;
     final indices = [
       for (var i = 0; i < _verses.length; i++)
@@ -882,6 +987,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Future<void> _repeatRange(int startIndex, int endIndex) async {
+    final generation = _beginPlan();
     final settings =
         ref.read(settingsControllerProvider).valueOrNull ?? const Settings();
     final keys = _verses
@@ -894,7 +1000,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       rangeCount: settings.rangeCount.clamp(2, 99),
     );
     if (_plan.isEmpty) return;
-    await _playAt(0, settings);
+    await _playAt(0, settings, planGeneration: generation);
   }
 }
 
@@ -1059,7 +1165,11 @@ class _RecitationVerseTile extends StatelessWidget {
                   duration: LanternMotion.medium,
                   curve: LanternMotion.emphasized,
                   scale: active ? 1.0 : 0.74,
-                  child: AyahSeal(ayah: verse.ayah, latin: latinAyahNumbers, size: 30),
+                  child: AyahSeal(
+                    ayah: verse.ayah,
+                    latin: latinAyahNumbers,
+                    size: 30,
+                  ),
                 ),
               ],
             ),
@@ -1283,10 +1393,7 @@ class _StopBar extends StatelessWidget {
 /// Barre de lecture (mode Lire) : défilement par set d'âyât, pas d'audio.
 /// Le focus se pilote uniquement depuis l'icône de l'AppBar (pas de doublon).
 class _ReadingNavBar extends StatelessWidget {
-  const _ReadingNavBar({
-    required this.onPrev,
-    required this.onNext,
-  });
+  const _ReadingNavBar({required this.onPrev, required this.onNext});
   final VoidCallback onPrev;
   final VoidCallback onNext;
 

@@ -28,17 +28,22 @@ import 'package:juzreviz/domain/usecase/streak.dart';
 final jsonStoreProvider = Provider<JsonStore>((ref) => FileJsonStore());
 final clockProvider = Provider<Clock>((ref) => const SystemClock());
 
-final corpusRepositoryProvider =
-    Provider<CorpusRepository>((ref) => CorpusRepository());
+final corpusRepositoryProvider = Provider<CorpusRepository>(
+  (ref) => CorpusRepository(),
+);
 final settingsRepositoryProvider = Provider<SettingsRepository>(
-    (ref) => SettingsRepository(ref.read(jsonStoreProvider)));
+  (ref) => SettingsRepository(ref.read(jsonStoreProvider)),
+);
 final masteryRepositoryProvider = Provider<MasteryRepository>(
-    (ref) => MasteryRepository(ref.read(jsonStoreProvider)));
+  (ref) => MasteryRepository(ref.read(jsonStoreProvider)),
+);
 final playlistsRepositoryProvider = Provider<PlaylistsRepository>(
-    (ref) => PlaylistsRepository(ref.read(jsonStoreProvider)));
+  (ref) => PlaylistsRepository(ref.read(jsonStoreProvider)),
+);
 
-final audioCacheRepositoryProvider =
-    Provider<AudioCacheRepository>((ref) => AudioCacheRepository());
+final audioCacheRepositoryProvider = Provider<AudioCacheRepository>(
+  (ref) => AudioCacheRepository(),
+);
 
 final audioControllerProvider = Provider<AudioController>((ref) {
   final cache = ref.read(audioCacheRepositoryProvider);
@@ -53,28 +58,35 @@ final audioControllerProvider = Provider<AudioController>((ref) {
 // --- Téléchargements audio offline (sourate / juz / Coran) ---
 
 /// État/octets d'une sourate pour un récitateur (cache offline).
-final surahDownloadStatusProvider = FutureProvider.family<
-    ({bool done, int bytes}), ({String reciter, int surah})>((ref, a) async {
-  final metas = await ref.watch(surahMetasProvider.future);
-  final meta = metas.firstWhere((m) => m.number == a.surah);
-  final keys = surahVerseKeys(a.surah, meta.ayahCount);
-  final repo = ref.read(audioCacheRepositoryProvider);
-  final done = await repo.areVersesDownloaded(a.reciter, keys);
-  final bytes = await repo.surahBytes(a.reciter, a.surah);
-  return (done: done, bytes: bytes);
-});
+final surahDownloadStatusProvider =
+    FutureProvider.family<
+      ({bool done, int bytes}),
+      ({String reciter, int surah})
+    >((ref, a) async {
+      final metas = await ref.watch(surahMetasProvider.future);
+      final meta = metas.firstWhere((m) => m.number == a.surah);
+      final keys = surahVerseKeys(a.surah, meta.ayahCount);
+      final repo = ref.read(audioCacheRepositoryProvider);
+      final done = await repo.areVersesDownloaded(a.reciter, keys);
+      final bytes = await repo.surahBytes(a.reciter, a.surah);
+      return (done: done, bytes: bytes);
+    });
 
 /// Un juz est-il intégralement en cache pour ce récitateur ?
 final juzDownloadStatusProvider =
     FutureProvider.family<bool, ({String reciter, int juz})>((ref, a) async {
-  final metas = await ref.watch(surahMetasProvider.future);
-  final keys = juzVerseKeys(a.juz, metas);
-  return ref.read(audioCacheRepositoryProvider).areVersesDownloaded(a.reciter, keys);
-});
+      final metas = await ref.watch(surahMetasProvider.future);
+      final keys = juzVerseKeys(a.juz, metas);
+      return ref
+          .read(audioCacheRepositoryProvider)
+          .areVersesDownloaded(a.reciter, keys);
+    });
 
 /// Le Coran entier est-il en cache pour ce récitateur ?
-final quranDownloadStatusProvider =
-    FutureProvider.family<bool, String>((ref, reciter) async {
+final quranDownloadStatusProvider = FutureProvider.family<bool, String>((
+  ref,
+  reciter,
+) async {
   final metas = await ref.watch(surahMetasProvider.future);
   return ref
       .read(audioCacheRepositoryProvider)
@@ -82,14 +94,18 @@ final quranDownloadStatusProvider =
 });
 
 final totalCacheBytesProvider = FutureProvider<int>(
-    (ref) => ref.read(audioCacheRepositoryProvider).totalBytes());
+  (ref) => ref.read(audioCacheRepositoryProvider).totalBytes(),
+);
 
 /// État de téléchargement courant : un seul groupe actif à la fois.
 typedef DownloadsState = ({String? active, double progress});
 
+enum DownloadOutcome { completed, cancelled, failed, busy }
+
 final downloadsControllerProvider =
     NotifierProvider<DownloadsController, DownloadsState>(
-        DownloadsController.new);
+      DownloadsController.new,
+    );
 
 class DownloadsController extends Notifier<DownloadsState> {
   bool _cancel = false;
@@ -105,19 +121,32 @@ class DownloadsController extends Notifier<DownloadsState> {
   }
 
   /// Télécharge un groupe identifié ([id] : `s2`, `j5`, `quran`…).
-  Future<void> download(String reciterId, String id, List<String> keys) async {
-    if (state.active != null) return; // une à la fois
+  Future<DownloadOutcome> download(
+    String reciterId,
+    String id,
+    List<String> keys,
+  ) async {
+    if (state.active != null) return DownloadOutcome.busy;
     _cancel = false;
     state = (active: id, progress: 0);
-    await ref.read(audioCacheRepositoryProvider).downloadSurah(
-          reciterId,
-          keys,
-          onProgress: (d, t) =>
-              state = (active: id, progress: t == 0 ? 0 : d / t),
-          cancelled: () => _cancel,
-        );
-    state = (active: null, progress: 0);
-    _invalidateAll();
+    try {
+      final completed = await ref
+          .read(audioCacheRepositoryProvider)
+          .downloadSurah(
+            reciterId,
+            keys,
+            onProgress: (d, t) =>
+                state = (active: id, progress: t == 0 ? 0 : d / t),
+            cancelled: () => _cancel,
+          );
+      if (completed) return DownloadOutcome.completed;
+      return _cancel ? DownloadOutcome.cancelled : DownloadOutcome.failed;
+    } catch (_) {
+      return DownloadOutcome.failed;
+    } finally {
+      state = (active: null, progress: 0);
+      _invalidateAll();
+    }
   }
 
   void cancel() => _cancel = true;
@@ -133,42 +162,52 @@ class DownloadsController extends Notifier<DownloadsState> {
   }
 }
 
-final tafsirRepositoryProvider =
-    Provider<TafsirRepository>((ref) => TafsirRepository());
+final tafsirRepositoryProvider = Provider<TafsirRepository>(
+  (ref) => TafsirRepository(),
+);
 
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) => NotificationService());
+final notificationServiceProvider = Provider<NotificationService>(
+  (ref) => NotificationService(),
+);
 
 // --- Moushaf (pages QPC embarquées + pack de polices téléchargeable) ---
 
-final mushafRepositoryProvider =
-    Provider<MushafRepository>((ref) => MushafRepository());
+final mushafRepositoryProvider = Provider<MushafRepository>(
+  (ref) => MushafRepository(),
+);
 
-final mushafFontStoreProvider =
-    Provider<MushafFontStore>((ref) => MushafFontStore());
+final mushafFontStoreProvider = Provider<MushafFontStore>(
+  (ref) => MushafFontStore(),
+);
 
 /// Le pack de polices moushaf est-il téléchargé ? (gate des dispositions Mushaf)
 final mushafAvailableProvider = FutureProvider<bool>(
-    (ref) => ref.read(mushafFontStoreProvider).isDownloaded());
+  (ref) => ref.read(mushafFontStoreProvider).isDownloaded(),
+);
 
 final mushafCacheBytesProvider = FutureProvider<int>(
-    (ref) => ref.read(mushafFontStoreProvider).totalBytes());
+  (ref) => ref.read(mushafFontStoreProvider).totalBytes(),
+);
 
 /// Lignes d'une page de moushaf (1-indexée).
 final mushafPageProvider = FutureProvider.family<List<MushafLine>, int>(
-    (ref, page) => ref.read(mushafRepositoryProvider).linesForPage(page));
+  (ref, page) => ref.read(mushafRepositoryProvider).linesForPage(page),
+);
 
 /// Charge la police de la page depuis le stockage (lazy, une seule fois).
 final mushafFontProvider = FutureProvider.family<void, int>(
-    (ref, page) => ref.read(mushafFontStoreProvider).ensureLoaded(page));
+  (ref, page) => ref.read(mushafFontStoreProvider).ensureLoaded(page),
+);
 
-final mushafPageCountProvider =
-    FutureProvider<int>((ref) => ref.read(mushafRepositoryProvider).pageCount());
+final mushafPageCountProvider = FutureProvider<int>(
+  (ref) => ref.read(mushafRepositoryProvider).pageCount(),
+);
 
 /// Téléchargement du pack moushaf : progression 0..1 (null = inactif).
 final mushafDownloadProvider =
     NotifierProvider<MushafDownloadController, double?>(
-        MushafDownloadController.new);
+      MushafDownloadController.new,
+    );
 
 class MushafDownloadController extends Notifier<double?> {
   bool _cancel = false;
@@ -176,17 +215,26 @@ class MushafDownloadController extends Notifier<double?> {
   @override
   double? build() => null;
 
-  Future<void> download() async {
-    if (state != null) return;
+  Future<DownloadOutcome> download() async {
+    if (state != null) return DownloadOutcome.busy;
     _cancel = false;
     state = 0;
-    await ref.read(mushafFontStoreProvider).download(
-          onProgress: (d, t) => state = d / t,
-          cancelled: () => _cancel,
-        );
-    state = null;
-    ref.invalidate(mushafAvailableProvider);
-    ref.invalidate(mushafCacheBytesProvider);
+    try {
+      final completed = await ref
+          .read(mushafFontStoreProvider)
+          .download(
+            onProgress: (d, t) => state = d / t,
+            cancelled: () => _cancel,
+          );
+      if (completed) return DownloadOutcome.completed;
+      return _cancel ? DownloadOutcome.cancelled : DownloadOutcome.failed;
+    } catch (_) {
+      return DownloadOutcome.failed;
+    } finally {
+      state = null;
+      ref.invalidate(mushafAvailableProvider);
+      ref.invalidate(mushafCacheBytesProvider);
+    }
   }
 
   void cancel() => _cancel = true;
@@ -201,8 +249,9 @@ class MushafDownloadController extends Notifier<double?> {
 /// Tafsir d'un verset, par langue (lazy, décompressé+caché par le repo).
 final verseTafsirProvider =
     FutureProvider.family<String, ({String lang, String verseKey})>(
-  (ref, a) => ref.read(tafsirRepositoryProvider).verseTafsir(a.lang, a.verseKey),
-);
+      (ref, a) =>
+          ref.read(tafsirRepositoryProvider).verseTafsir(a.lang, a.verseKey),
+    );
 
 // --- Settings ---
 
@@ -213,8 +262,16 @@ class SettingsController extends AsyncNotifier<Settings> {
   @override
   Future<Settings> build() => ref.read(settingsRepositoryProvider).load();
 
+  Future<Settings> _current() async {
+    final ready = state.valueOrNull;
+    if (ready != null) return ready;
+    final loaded = await ref.read(settingsRepositoryProvider).load();
+    return state.valueOrNull ?? loaded;
+  }
+
   Future<void> edit(Settings Function(Settings) mutate) async {
-    final next = mutate(state.valueOrNull ?? const Settings());
+    final loaded = await _current();
+    final next = mutate(state.valueOrNull ?? loaded);
     state = AsyncData(next);
     await ref.read(settingsRepositoryProvider).save(next);
   }
@@ -224,55 +281,102 @@ class SettingsController extends AsyncNotifier<Settings> {
 
 final masteryControllerProvider =
     AsyncNotifierProvider<MasteryController, MasteryState>(
-        MasteryController.new);
+      MasteryController.new,
+    );
 
 class MasteryController extends AsyncNotifier<MasteryState> {
   @override
   Future<MasteryState> build() => ref.read(masteryRepositoryProvider).load();
 
   int _now() => ref.read(clockProvider).nowMs();
-  MasteryState get _s => state.valueOrNull ?? const MasteryState();
+
+  Future<MasteryState> _current() async {
+    final ready = state.valueOrNull;
+    if (ready != null) return ready;
+    final loaded = await ref.read(masteryRepositoryProvider).load();
+    return state.valueOrNull ?? loaded;
+  }
 
   Future<void> _persist(MasteryState next) async {
     state = AsyncData(next);
     await ref.read(masteryRepositoryProvider).save(next);
   }
 
-  Future<void> markFragile(String key) {
-    final fragile = {..._s.fragile};
-    fragile[key] = Fragile(_now(), (fragile[key]?.count ?? 0) + 1);
-    return _persist(_s.copyWith(fragile: fragile));
+  Future<void> _update(MasteryState Function(MasteryState) mutate) async {
+    final loaded = await _current();
+    await _persist(mutate(state.valueOrNull ?? loaded));
   }
 
-  Future<void> markMastered(String key) {
-    final mastered = {..._s.mastered};
-    mastered[key] = Mastered(_now());
-    return _persist(_s.copyWith(mastered: mastered));
+  Future<void> markFragile(String key) => markFragileMany([key]);
+
+  Future<void> markFragileMany(Iterable<String> keys) {
+    final now = _now();
+    return _update((current) {
+      final fragile = {...current.fragile};
+      for (final key in keys) {
+        fragile[key] = Fragile(now, (fragile[key]?.count ?? 0) + 1);
+      }
+      return current.copyWith(fragile: fragile);
+    });
   }
 
-  Future<void> clearDifficulty(String key) {
-    final fragile = {..._s.fragile}..remove(key);
-    return _persist(_s.copyWith(fragile: fragile));
+  Future<void> markMastered(String key) => markMasteredMany([key]);
+
+  Future<void> markMasteredMany(Iterable<String> keys) {
+    final now = _now();
+    return _update((current) {
+      final mastered = {...current.mastered};
+      for (final key in keys) {
+        mastered[key] = Mastered(now);
+      }
+      return current.copyWith(mastered: mastered);
+    });
   }
 
-  Future<void> resetVerse(String key) {
-    final fragile = {..._s.fragile}..remove(key);
-    final mastered = {..._s.mastered}..remove(key);
-    return _persist(_s.copyWith(fragile: fragile, mastered: mastered));
+  Future<void> clearDifficulty(String key) => _update((current) {
+    final fragile = {...current.fragile}..remove(key);
+    return current.copyWith(fragile: fragile);
+  });
+
+  Future<void> resetVerse(String key) => _update((current) {
+    final fragile = {...current.fragile}..remove(key);
+    final mastered = {...current.mastered}..remove(key);
+    final scarred = {...current.scarred}..remove(key);
+    return current.copyWith(
+      fragile: fragile,
+      mastered: mastered,
+      scarred: scarred,
+    );
+  });
+
+  Future<void> resetVerses(Iterable<String> keys) {
+    final keySet = keys.toSet();
+    return _update((current) {
+      final fragile = {...current.fragile}
+        ..removeWhere((key, _) => keySet.contains(key));
+      final mastered = {...current.mastered}
+        ..removeWhere((key, _) => keySet.contains(key));
+      final scarred = {...current.scarred}..removeAll(keySet);
+      return current.copyWith(
+        fragile: fragile,
+        mastered: mastered,
+        scarred: scarred,
+      );
+    });
   }
 
   /// Cicatrice manuelle (toggle) : pose/retire le badge permanent.
-  Future<void> toggleScar(String key) {
-    final scarred = {..._s.scarred};
+  Future<void> toggleScar(String key) => _update((current) {
+    final scarred = {...current.scarred};
     scarred.contains(key) ? scarred.remove(key) : scarred.add(key);
-    return _persist(_s.copyWith(scarred: scarred));
-  }
+    return current.copyWith(scarred: scarred);
+  });
 
-  Future<void> toggleMemorized(int surah) {
-    final set = {..._s.memorizedSurahs};
+  Future<void> toggleMemorized(int surah) => _update((current) {
+    final set = {...current.memorizedSurahs};
     set.contains(surah) ? set.remove(surah) : set.add(surah);
-    return _persist(_s.copyWith(memorizedSurahs: set));
-  }
+    return current.copyWith(memorizedSurahs: set);
+  });
 
   /// Ensemencement au premier lancement : marque des sourates entières comme
   /// déjà mémorisées, en une seule persistance.
@@ -285,49 +389,72 @@ class MasteryController extends AsyncNotifier<MasteryState> {
   /// laisserait l'onglet Aujourd'hui presque vide malgré l'ensemencement.
   static const _seedDailyCap = 20;
 
-  Future<void> seedKnownSurahs(Map<int, int> surahToAyahCount) {
-    if (surahToAyahCount.isEmpty) return Future.value();
+  Future<void> seedKnownSurahs(Map<int, int> surahToAyahCount) async {
+    if (surahToAyahCount.isEmpty) return;
     final now = _now();
-    final profile =
-        (ref.read(settingsControllerProvider).valueOrNull ?? const Settings())
-            .masteryProfile;
+    final profile = (await ref.read(
+      settingsControllerProvider.future,
+    )).masteryProfile;
     final freshMs = (freshDaysFor(profile) * 86400000).round();
     const dayMs = 86400000;
 
-    final mastered = {..._s.mastered};
-    final memorized = {..._s.memorizedSurahs};
-    var i = 0;
-    for (final surah in surahToAyahCount.keys.toList()..sort()) {
-      memorized.add(surah);
-      final count = surahToAyahCount[surah]!;
-      for (var a = 1; a <= count; a++) {
-        // Verset i → vague (i ~/ cap) : jour 0 plein, puis 1 vague/jour.
-        final due = now + (i ~/ _seedDailyCap) * dayMs;
-        mastered.putIfAbsent('$surah:$a', () => Mastered(due - freshMs));
-        i++;
+    await _update((current) {
+      final mastered = {...current.mastered};
+      final memorized = {...current.memorizedSurahs};
+      var i = 0;
+      for (final surah in surahToAyahCount.keys.toList()..sort()) {
+        memorized.add(surah);
+        final count = surahToAyahCount[surah]!;
+        for (var a = 1; a <= count; a++) {
+          // Verset i → vague (i ~/ cap) : jour 0 plein, puis 1 vague/jour.
+          final due = now + (i ~/ _seedDailyCap) * dayMs;
+          mastered.putIfAbsent('$surah:$a', () => Mastered(due - freshMs));
+          i++;
+        }
       }
-    }
-    return _persist(
-        _s.copyWith(mastered: mastered, memorizedSurahs: memorized));
+      return current.copyWith(mastered: mastered, memorizedSurahs: memorized);
+    });
   }
 
-  Future<void> recordSession() {
-    final days = {..._s.sessionDays, dayKey(_now())};
-    return _persist(_s.copyWith(sessionDays: days));
+  /// Remplace le marqueur « sourates mémorisées ». Les nouvelles sourates sont
+  /// ensemencées ; retirer un marqueur conserve l'historique verset par verset.
+  Future<void> setKnownSurahs(Map<int, int> surahToAyahCount) async {
+    final current = await _current();
+    final selected = surahToAyahCount.keys.toSet();
+    final added = selected.difference(current.memorizedSurahs);
+    if (added.isNotEmpty) {
+      await seedKnownSurahs({
+        for (final surah in added) surah: surahToAyahCount[surah]!,
+      });
+    }
+    await _update((latest) => latest.copyWith(memorizedSurahs: selected));
   }
+
+  Future<void> recordSession() => _update((current) {
+    final days = {...current.sessionDays, dayKey(_now(), local: true)};
+    return current.copyWith(sessionDays: days);
+  });
 }
 
 // --- Playlists ---
 
 final playlistsControllerProvider =
     AsyncNotifierProvider<PlaylistsController, List<Playlist>>(
-        PlaylistsController.new);
+      PlaylistsController.new,
+    );
 
 class PlaylistsController extends AsyncNotifier<List<Playlist>> {
   @override
-  Future<List<Playlist>> build() => ref.read(playlistsRepositoryProvider).load();
+  Future<List<Playlist>> build() =>
+      ref.read(playlistsRepositoryProvider).load();
 
-  List<Playlist> get _s => state.valueOrNull ?? const [];
+  Future<List<Playlist>> _current() async {
+    final ready = state.valueOrNull;
+    if (ready != null) return ready;
+    final loaded = await ref.read(playlistsRepositoryProvider).load();
+    return state.valueOrNull ?? loaded;
+  }
+
   String _id() => DateTime.now().microsecondsSinceEpoch.toString();
 
   Future<void> _persist(List<Playlist> next) async {
@@ -335,80 +462,133 @@ class PlaylistsController extends AsyncNotifier<List<Playlist>> {
     await ref.read(playlistsRepositoryProvider).save(next);
   }
 
+  Future<void> _update(List<Playlist> Function(List<Playlist>) mutate) async {
+    final loaded = await _current();
+    await _persist(mutate(state.valueOrNull ?? loaded));
+  }
+
   Future<Playlist> create(String name) async {
     final p = Playlist(id: _id(), name: name);
-    await _persist([..._s, p]);
+    await _update((current) => [...current, p]);
     return p;
   }
 
-  Future<void> rename(String id, String name) =>
-      _persist([for (final p in _s) if (p.id == id) p.copyWith(name: name) else p]);
+  Future<void> rename(String id, String name) => _update(
+    (current) => [
+      for (final p in current)
+        if (p.id == id) p.copyWith(name: name) else p,
+    ],
+  );
 
-  Future<void> delete(String id) =>
-      _persist([for (final p in _s) if (p.id != id) p]);
+  Future<void> delete(String id) => _update(
+    (current) => [
+      for (final p in current)
+        if (p.id != id) p,
+    ],
+  );
 
   Future<void> addItem(String playlistId, Selection selection) {
-    final item = PlaylistItem(id: _id(), selection: selection, label: selection.label);
-    return _persist([
-      for (final p in _s)
-        if (p.id == playlistId) p.copyWith(items: [...p.items, item]) else p,
-    ]);
+    final item = PlaylistItem(
+      id: _id(),
+      selection: selection,
+      label: selection.label,
+    );
+    return _update(
+      (current) => [
+        for (final p in current)
+          if (p.id == playlistId) p.copyWith(items: [...p.items, item]) else p,
+      ],
+    );
   }
 
   /// Ajoute le passage s'il est absent, le retire s'il est présent (idempotent).
   Future<void> togglePassage(String playlistId, Selection selection) {
-    return _persist([
-      for (final p in _s)
-        if (p.id == playlistId)
-          p.copyWith(
-            items: p.items.any((i) => i.selection == selection)
-                ? [for (final i in p.items) if (i.selection != selection) i]
-                : [
-                    ...p.items,
-                    PlaylistItem(
-                        id: _id(), selection: selection, label: selection.label),
-                  ],
-          )
-        else
-          p,
-    ]);
+    return _update(
+      (current) => [
+        for (final p in current)
+          if (p.id == playlistId)
+            p.copyWith(
+              items: p.items.any((i) => i.selection == selection)
+                  ? [
+                      for (final i in p.items)
+                        if (i.selection != selection) i,
+                    ]
+                  : [
+                      ...p.items,
+                      PlaylistItem(
+                        id: _id(),
+                        selection: selection,
+                        label: selection.label,
+                      ),
+                    ],
+            )
+          else
+            p,
+      ],
+    );
   }
 
   /// Crée une playlist et y ajoute le passage en un seul geste.
   Future<void> createWithPassage(String name, Selection selection) async {
-    final item = PlaylistItem(id: _id(), selection: selection, label: selection.label);
-    await _persist([..._s, Playlist(id: _id(), name: name, items: [item])]);
+    final item = PlaylistItem(
+      id: _id(),
+      selection: selection,
+      label: selection.label,
+    );
+    await _update(
+      (current) => [
+        ...current,
+        Playlist(id: _id(), name: name, items: [item]),
+      ],
+    );
   }
 
   /// Crée une playlist à partir d'une sélection multiple (composeur).
   Future<void> createWithSelections(
-      String name, List<Selection> selections) async {
+    String name,
+    List<Selection> selections,
+  ) async {
     final items = [
       for (final s in selections)
         PlaylistItem(id: _id(), selection: s, label: s.label),
     ];
-    await _persist([..._s, Playlist(id: _id(), name: name, items: items)]);
+    await _update(
+      (current) => [...current, Playlist(id: _id(), name: name, items: items)],
+    );
   }
 
-  Future<void> removeItem(String playlistId, String itemId) => _persist([
-        for (final p in _s)
-          if (p.id == playlistId)
-            p.copyWith(items: [for (final i in p.items) if (i.id != itemId) i])
-          else
-            p,
-      ]);
-
-  Future<void> reorderItems(String playlistId, int oldIndex, int newIndex) {
-    return _persist([
-      for (final p in _s)
+  Future<void> removeItem(String playlistId, String itemId) => _update(
+    (current) => [
+      for (final p in current)
         if (p.id == playlistId)
-          p.copyWith(items: _reorder(p.items, oldIndex, newIndex))
+          p.copyWith(
+            items: [
+              for (final i in p.items)
+                if (i.id != itemId) i,
+            ],
+          )
         else
           p,
-    ]);
+    ],
+  );
+
+  Future<void> reorderItems(String playlistId, int oldIndex, int newIndex) {
+    return _update(
+      (current) => [
+        for (final p in current)
+          if (p.id == playlistId)
+            p.copyWith(items: _reorder(p.items, oldIndex, newIndex))
+          else
+            p,
+      ],
+    );
   }
 
-  List<PlaylistItem> _reorder(List<PlaylistItem> items, int oldIndex, int newIndex) {
+  List<PlaylistItem> _reorder(
+    List<PlaylistItem> items,
+    int oldIndex,
+    int newIndex,
+  ) {
     final list = [...items];
     final i = newIndex > oldIndex ? newIndex - 1 : newIndex;
     final moved = list.removeAt(oldIndex);
@@ -432,7 +612,8 @@ bool playlistHasPassage(Playlist p, Selection selection) =>
 // --- Dérivés (lecture seule, recomposés réactivement) ---
 
 final surahMetasProvider = FutureProvider<List<SurahMeta>>(
-    (ref) => ref.read(corpusRepositoryProvider).surahMetas());
+  (ref) => ref.read(corpusRepositoryProvider).surahMetas(),
+);
 
 final atlasHeatProvider = FutureProvider<List<SurahHeatTile>>((ref) async {
   final metas = await ref.watch(surahMetasProvider.future);
@@ -440,7 +621,13 @@ final atlasHeatProvider = FutureProvider<List<SurahHeatTile>>((ref) async {
   final settings = await ref.watch(settingsControllerProvider.future);
   final now = ref.read(clockProvider).nowMs();
   return buildAtlasHeat(
-      metas, mastery.fragile, mastery.mastered, settings.masteryProfile, now);
+    metas,
+    mastery.fragile,
+    mastery.mastered,
+    settings.masteryProfile,
+    now,
+    manualScarred: mastery.scarred,
+  );
 });
 
 final decayQueueProvider = FutureProvider<List<QueueEntry>>((ref) async {
@@ -448,12 +635,17 @@ final decayQueueProvider = FutureProvider<List<QueueEntry>>((ref) async {
   final settings = await ref.watch(settingsControllerProvider.future);
   final now = ref.read(clockProvider).nowMs();
   return buildDecayQueue(
-      mastery.fragile, mastery.mastered, settings.masteryProfile, now);
+    mastery.fragile,
+    mastery.mastered,
+    settings.masteryProfile,
+    now,
+  );
 });
 
 /// Synthèse de la file de révision : nombre dû + estimation de durée (min).
-final reviewSummaryProvider =
-    FutureProvider<({int count, int minutes})>((ref) async {
+final reviewSummaryProvider = FutureProvider<({int count, int minutes})>((
+  ref,
+) async {
   final queue = await ref.watch(decayQueueProvider.future);
   final count = queue.length;
   final minutes = count == 0 ? 0 : ((count * 12) / 60).ceil().clamp(1, 999);
@@ -463,7 +655,7 @@ final reviewSummaryProvider =
 final streakProvider = FutureProvider<int>((ref) async {
   final mastery = await ref.watch(masteryControllerProvider.future);
   final now = ref.read(clockProvider).nowMs();
-  return computeStreak(mastery.sessionDays, now);
+  return computeStreak(mastery.sessionDays, now, local: true);
 });
 
 /// Top sourates « qui s'éteignent » (stats zones chaudes, sans gamification).

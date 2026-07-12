@@ -12,10 +12,12 @@ class MushafView extends ConsumerStatefulWidget {
   const MushafView({
     super.key,
     this.initialVerseKey,
+    this.onVerseChanged,
     this.onVerseLongPress,
   });
 
   final String? initialVerseKey;
+  final ValueChanged<String>? onVerseChanged;
   final ValueChanged<String>? onVerseLongPress;
 
   @override
@@ -25,20 +27,31 @@ class MushafView extends ConsumerStatefulWidget {
 class _MushafViewState extends ConsumerState<MushafView> {
   final PageController _controller = PageController();
   int _page = 1; // page affichée (1-indexée)
+  int _pageChangeGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    final key = widget.initialVerseKey;
-    if (key != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final page = await ref.read(mushafRepositoryProvider).pageForVerse(key);
-        if (page != null && mounted && _controller.hasClients) {
-          _controller.jumpToPage(page - 1);
-          setState(() => _page = page);
-        }
-      });
+    _scheduleJumpToVerse(widget.initialVerseKey);
+  }
+
+  @override
+  void didUpdateWidget(covariant MushafView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialVerseKey != widget.initialVerseKey) {
+      _scheduleJumpToVerse(widget.initialVerseKey);
     }
+  }
+
+  void _scheduleJumpToVerse(String? key) {
+    if (key == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final page = await ref.read(mushafRepositoryProvider).pageForVerse(key);
+      if (page != null && mounted && _controller.hasClients) {
+        _controller.jumpToPage(page - 1);
+        setState(() => _page = page);
+      }
+    });
   }
 
   @override
@@ -47,10 +60,29 @@ class _MushafViewState extends ConsumerState<MushafView> {
     super.dispose();
   }
 
-  void _go(int delta) {
-    final next = (_page - 1 + delta).clamp(0, 603);
-    _controller.animateToPage(next,
-        duration: LanternMotion.medium, curve: LanternMotion.emphasized);
+  void _go(int delta, int pageCount) {
+    final next = (_page - 1 + delta).clamp(0, pageCount - 1);
+    _controller.animateToPage(
+      next,
+      duration: LanternMotion.medium,
+      curve: LanternMotion.emphasized,
+    );
+  }
+
+  Future<void> _onPageChanged(int index) async {
+    final generation = ++_pageChangeGeneration;
+    final page = index + 1;
+    setState(() => _page = page);
+    final lines = await ref.read(mushafRepositoryProvider).linesForPage(page);
+    if (!mounted || generation != _pageChangeGeneration) return;
+    for (final line in lines) {
+      for (final word in line.words) {
+        if (word.verseKey.isNotEmpty) {
+          widget.onVerseChanged?.call(word.verseKey);
+          return;
+        }
+      }
+    }
   }
 
   @override
@@ -64,7 +96,7 @@ class _MushafViewState extends ConsumerState<MushafView> {
           child: PageView.builder(
             controller: _controller,
             reverse: true,
-            onPageChanged: (i) => setState(() => _page = i + 1),
+            onPageChanged: _onPageChanged,
             itemCount: count,
             itemBuilder: (_, i) => _MushafPage(
               page: i + 1,
@@ -76,18 +108,22 @@ class _MushafViewState extends ConsumerState<MushafView> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+              horizontal: LanternSpace.md,
+              vertical: LanternSpace.sm,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 OutlinedButton(
-                  onPressed: _page > 1 ? () => _go(-1) : null,
+                  onPressed: _page > 1 ? () => _go(-1, count) : null,
                   child: const Icon(Icons.chevron_left),
                 ),
-                Text('Page $_page',
-                    style: TextStyle(color: t.inkSoft, fontSize: 13)),
+                Text(
+                  'Page $_page',
+                  style: TextStyle(color: t.inkSoft, fontSize: 13),
+                ),
                 OutlinedButton(
-                  onPressed: _page < count ? () => _go(1) : null,
+                  onPressed: _page < count ? () => _go(1, count) : null,
                   child: const Icon(Icons.chevron_right),
                 ),
               ],
@@ -108,17 +144,22 @@ class _MushafPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
     final linesAsync = ref.watch(mushafPageProvider(page));
-    final fontReady = ref.watch(mushafFontProvider(page)).hasValue;
+    final fontAsync = ref.watch(mushafFontProvider(page));
     final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
 
-    if (!fontReady) return const Center(child: CircularProgressIndicator());
+    if (fontAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (fontAsync.hasError) return _pageError(ref);
 
     return linesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur page $page : $e')),
+      error: (_, _) => _pageError(ref),
       data: (lines) => Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: LanternSpace.md, vertical: LanternSpace.sm),
+          horizontal: LanternSpace.md,
+          vertical: LanternSpace.sm,
+        ),
         // FittedBox : toute la page tient à l'écran (jamais d'overflow).
         child: LayoutBuilder(
           builder: (context, c) => Center(
@@ -139,8 +180,31 @@ class _MushafPage extends ConsumerWidget {
     );
   }
 
+  Widget _pageError(WidgetRef ref) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Impossible de charger la page $page.'),
+        const SizedBox(height: LanternSpace.sm),
+        TextButton.icon(
+          onPressed: () {
+            ref
+              ..invalidate(mushafPageProvider(page))
+              ..invalidate(mushafFontProvider(page));
+          },
+          icon: const Icon(Icons.refresh),
+          label: const Text('Réessayer'),
+        ),
+      ],
+    ),
+  );
+
   Widget _line(
-      BuildContext context, LanternTokens t, List metas, MushafLine line) {
+    BuildContext context,
+    LanternTokens t,
+    List metas,
+    MushafLine line,
+  ) {
     const fontSize = 30.0;
     switch (line.type) {
       case MushafLineType.surahHeader:
@@ -160,7 +224,10 @@ class _MushafPage extends ConsumerWidget {
             name ?? 'سورة ${line.surah}',
             textDirection: TextDirection.rtl,
             style: TextStyle(
-                color: t.accent, fontSize: 22, fontFamily: t.arabicFamily),
+              color: t.accent,
+              fontSize: 22,
+              fontFamily: t.arabicFamily,
+            ),
           ),
         );
       case MushafLineType.basmalah:
@@ -170,12 +237,19 @@ class _MushafPage extends ConsumerWidget {
             'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
             textDirection: TextDirection.rtl,
             style: TextStyle(
-                color: t.ink, fontSize: 24, fontFamily: t.arabicFamily),
+              color: t.ink,
+              fontSize: 24,
+              fontFamily: t.arabicFamily,
+            ),
           ),
         );
       case MushafLineType.ayah:
         final style = TextStyle(
-            color: t.ink, fontSize: fontSize, fontFamily: 'p$page', height: 2.0);
+          color: t.ink,
+          fontSize: fontSize,
+          fontFamily: 'p$page',
+          height: 2.0,
+        );
         // Largeur intrinsèque (mainAxisSize.min) : la ligne prend sa taille
         // naturelle, mise à l'échelle ensuite par le FittedBox.
         return Padding(

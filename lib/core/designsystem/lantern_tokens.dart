@@ -56,13 +56,50 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
 
   final String? arabicFamily;
 
+  /// Opacité réellement utilisée par les cellules actives de la heatmap.
+  ///
+  /// Le fond final est pré-composé sur [background] afin que le choix de la
+  /// couleur de texte repose sur la couleur effectivement rendue, et non sur
+  /// la couleur source avant transparence.
+  static const double heatCellOpacity = 0.9;
+
   Color heat(HeatState s) => switch (s) {
-        HeatState.fragile => fragile,
-        HeatState.fresh => fresh,
-        HeatState.fading => fading,
-        HeatState.stale => stale,
-        HeatState.blank => blank,
-      };
+    HeatState.fragile => fragile,
+    HeatState.fresh => fresh,
+    HeatState.fading => fading,
+    HeatState.stale => stale,
+    HeatState.blank => blank,
+  };
+
+  /// Fond opaque effectivement rendu par une cellule de chaleur.
+  Color heatCellBackground(HeatState state) => state == HeatState.blank
+      ? blank
+      : Color.alphaBlend(
+          heat(state).withValues(alpha: heatCellOpacity),
+          background,
+        );
+
+  /// Encre noir/blanc offrant le meilleur contraste sur une cellule.
+  ///
+  /// Les palettes de chaleur varient fortement entre les thèmes : utiliser
+  /// systématiquement [ink] rendait notamment le thème Contraste élevé moins
+  /// lisible. Noir ou blanc garantit ici un contraste WCAG AA (>= 4.5:1).
+  Color heatCellForeground(HeatState state) {
+    final fill = heatCellBackground(state);
+    const dark = Colors.black;
+    const light = Colors.white;
+    return _contrastRatio(dark, fill) >= _contrastRatio(light, fill)
+        ? dark
+        : light;
+  }
+
+  static double _contrastRatio(Color a, Color b) {
+    final l1 = a.computeLuminance();
+    final l2 = b.computeLuminance();
+    final lighter = l1 > l2 ? l1 : l2;
+    final darker = l1 > l2 ? l2 : l1;
+    return (lighter + 0.05) / (darker + 0.05);
+  }
 
   @override
   LanternTokens copyWith({
@@ -84,27 +121,26 @@ class LanternTokens extends ThemeExtension<LanternTokens> {
     Color? blank,
     Color? scar,
     String? arabicFamily,
-  }) =>
-      LanternTokens(
-        background: background ?? this.background,
-        surface: surface ?? this.surface,
-        surfaceHigh: surfaceHigh ?? this.surfaceHigh,
-        accent: accent ?? this.accent,
-        accentSoft: accentSoft ?? this.accentSoft,
-        accentInk: accentInk ?? this.accentInk,
-        ink: ink ?? this.ink,
-        inkSoft: inkSoft ?? this.inkSoft,
-        inkFaint: inkFaint ?? this.inkFaint,
-        border: border ?? this.border,
-        ember: ember ?? this.ember,
-        fragile: fragile ?? this.fragile,
-        fresh: fresh ?? this.fresh,
-        fading: fading ?? this.fading,
-        stale: stale ?? this.stale,
-        blank: blank ?? this.blank,
-        scar: scar ?? this.scar,
-        arabicFamily: arabicFamily ?? this.arabicFamily,
-      );
+  }) => LanternTokens(
+    background: background ?? this.background,
+    surface: surface ?? this.surface,
+    surfaceHigh: surfaceHigh ?? this.surfaceHigh,
+    accent: accent ?? this.accent,
+    accentSoft: accentSoft ?? this.accentSoft,
+    accentInk: accentInk ?? this.accentInk,
+    ink: ink ?? this.ink,
+    inkSoft: inkSoft ?? this.inkSoft,
+    inkFaint: inkFaint ?? this.inkFaint,
+    border: border ?? this.border,
+    ember: ember ?? this.ember,
+    fragile: fragile ?? this.fragile,
+    fresh: fresh ?? this.fresh,
+    fading: fading ?? this.fading,
+    stale: stale ?? this.stale,
+    blank: blank ?? this.blank,
+    scar: scar ?? this.scar,
+    arabicFamily: arabicFamily ?? this.arabicFamily,
+  );
 
   @override
   LanternTokens lerp(ThemeExtension<LanternTokens>? other, double t) {

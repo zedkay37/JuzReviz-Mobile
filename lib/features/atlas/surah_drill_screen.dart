@@ -45,7 +45,15 @@ class SurahDrillScreen extends ConsumerWidget {
       ),
       body: metasAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+        error: (_, _) => LanternEmpty(
+          message:
+              'Impossible de charger cette sourate. Réessayez dans un instant.',
+          action: OutlinedButton.icon(
+            onPressed: () => ref.invalidate(surahMetasProvider),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+          ),
+        ),
         data: (metas) {
           final meta = metas.firstWhere((m) => m.number == surah);
           return GridView.builder(
@@ -62,16 +70,18 @@ class SurahDrillScreen extends ConsumerWidget {
               final key = '$surah:$ayah';
               final f = mastery?.fragile[key];
               final m = mastery?.mastered[key];
-              final state =
-                  verseHeatState(f, m, settings.masteryProfile, now);
+              final state = verseHeatState(f, m, settings.masteryProfile, now);
               final scarred =
-                  hasImplicitScar(f, m) || (mastery?.scarred.contains(key) ?? false);
+                  hasImplicitScar(f, m) ||
+                  (mastery?.scarred.contains(key) ?? false);
               return HeatCell(
                 ayah: ayah,
                 state: state,
                 scarred: scarred,
-                onTap: () => context.push('/read',
-                    extra: SelSurah(surah, ayah, meta.ayahCount)),
+                onTap: () => context.push(
+                  '/read',
+                  extra: SelSurah(surah, ayah, meta.ayahCount),
+                ),
                 onLongPress: () =>
                     _capture(context, ref, key, ayah, meta.ayahCount),
               );
@@ -95,7 +105,12 @@ class SurahDrillScreen extends ConsumerWidget {
   }
 
   Future<void> _capture(
-      BuildContext context, WidgetRef ref, String key, int ayah, int count) async {
+    BuildContext context,
+    WidgetRef ref,
+    String key,
+    int ayah,
+    int count,
+  ) async {
     await showVerseActions(
       context,
       verseKey: key,

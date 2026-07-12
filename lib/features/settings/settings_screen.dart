@@ -17,11 +17,30 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final s = settingsAsync.valueOrNull;
+    if (s == null) {
+      return LanternScaffold(
+        appBar: AppBar(title: const Text('Profil')),
+        body: settingsAsync.hasError
+            ? LanternEmpty(
+                message: 'Impossible de charger le profil.',
+                action: TextButton.icon(
+                  onPressed: () => ref.invalidate(settingsControllerProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
     return LanternScaffold(
       appBar: AppBar(title: const Text('Profil')),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: LanternSpace.lg, top: LanternSpace.sm),
+        padding: const EdgeInsets.only(
+          bottom: LanternSpace.lg,
+          top: LanternSpace.sm,
+        ),
         children: [
           const SettingSection('Réglages'),
           SettingGroup(
@@ -66,7 +85,7 @@ class SettingsScreen extends ConsumerWidget {
               NavCard(
                 icon: Icons.sync_alt,
                 title: 'Données',
-                subtitle: 'Téléchargements hors-ligne, export et sauvegarde',
+                subtitle: 'Téléchargements hors-ligne et sauvegarde locale',
                 onTap: () => context.push('/profile/data'),
               ),
               NavCard(

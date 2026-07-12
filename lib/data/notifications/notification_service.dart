@@ -32,7 +32,11 @@ class NotificationService {
       // Fallback : UTC (déjà la valeur par défaut).
     }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
+    const ios = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
@@ -47,20 +51,29 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
           >();
-      final granted = await android?.requestNotificationsPermission();
+      if (android != null) {
+        return await android.requestNotificationsPermission() ?? false;
+      }
       final ios = _plugin
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
           >();
-      await ios?.requestPermissions(alert: true, badge: true, sound: true);
-      return granted ?? true;
+      if (ios != null) {
+        return await ios.requestPermissions(
+              alert: true,
+              badge: true,
+              sound: true,
+            ) ??
+            false;
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
 
   /// Planifie un rappel quotidien à `hh:mm` (répétition par l'heure).
-  Future<void> scheduleDaily(int hour, int minute) async {
+  Future<bool> scheduleDaily(int hour, int minute) async {
     await init();
     await _cancelReminderIfPossible();
     final now = tz.TZDateTime.now(tz.local);
@@ -85,8 +98,10 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
       );
+      return true;
     } catch (_) {
       // A broken Android notification cache must not block app startup.
+      return false;
     }
   }
 
@@ -96,20 +111,21 @@ class NotificationService {
   }
 
   /// Applique l'état des réglages (`HH:MM`, activé/désactivé).
-  Future<void> apply({required bool enabled, required String hhmm}) async {
+  Future<bool> apply({required bool enabled, required String hhmm}) async {
     try {
       if (!enabled) {
         await cancelReminder();
-        return;
+        return true;
       }
       final granted = await requestPermissions();
-      if (!granted) return;
+      if (!granted) return false;
       final parts = hhmm.split(':');
       final h = int.tryParse(parts.first) ?? 8;
       final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-      await scheduleDaily(h, m);
+      return scheduleDaily(h, m);
     } catch (_) {
       // Reminders are helpful, but they are not allowed to crash the app.
+      return false;
     }
   }
 

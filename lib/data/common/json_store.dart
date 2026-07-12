@@ -10,9 +10,15 @@ abstract class JsonStore {
 }
 
 class FileJsonStore implements JsonStore {
-  FileJsonStore({this.subdir = 'juzreviz'});
+  FileJsonStore({this.subdir = 'juzreviz', Directory? root}) : _dir = root;
   final String subdir;
   Directory? _dir;
+
+  /// File d'écriture par document. Les contrôleurs publient leur nouvel état
+  /// immédiatement et plusieurs gestes peuvent donc appeler [write] avant la
+  /// fin de l'écriture précédente. Sans cette file, ces appels partageraient
+  /// le même `.tmp` et pourraient perdre la dernière révision.
+  final Map<String, Future<void>> _pendingWrites = {};
 
   Future<Directory> _ensureDir() async {
     if (_dir != null) return _dir!;
@@ -40,6 +46,31 @@ class FileJsonStore implements JsonStore {
 
   @override
   Future<void> write(String name, Map<String, dynamic> data) async {
+    final previous = _pendingWrites[name];
+    late final Future<void> current;
+    current = _writeAfter(previous, name, Map<String, dynamic>.from(data));
+    _pendingWrites[name] = current;
+    try {
+      await current;
+    } finally {
+      if (identical(_pendingWrites[name], current)) {
+        _pendingWrites.remove(name);
+      }
+    }
+  }
+
+  Future<void> _writeAfter(
+    Future<void>? previous,
+    String name,
+    Map<String, dynamic> data,
+  ) async {
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // Une écriture échouée ne doit pas bloquer toutes les suivantes.
+      }
+    }
     final dir = await _ensureDir();
     final tmp = File('${dir.path}/$name.json.tmp');
     await tmp.writeAsString(jsonEncode(data), flush: true);

@@ -44,7 +44,13 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Secrets de signature release — jamais commités
+# Secrets d'environnement et de signature — jamais commités
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
+AuthKey_*.p8
 /android/key.properties
 *.jks
 *.keystore

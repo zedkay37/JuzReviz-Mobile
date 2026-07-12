@@ -32,25 +32,67 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
     final name = _newCtrl.text.trim();
     if (name.isEmpty) return;
     setState(() => _creating = true);
-    await ref
-        .read(playlistsControllerProvider.notifier)
-        .createWithPassage(name, widget.selection);
-    HapticFeedback.selectionClick();
-    _newCtrl.clear();
-    if (mounted) setState(() => _creating = false);
+    try {
+      await ref.read(playlistsControllerProvider.future);
+      await ref
+          .read(playlistsControllerProvider.notifier)
+          .createWithPassage(name, widget.selection);
+      HapticFeedback.selectionClick();
+      _newCtrl.clear();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de créer la playlist.')),
+      );
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final playlists = ref.watch(playlistsControllerProvider).valueOrNull ?? [];
+    final playlistsAsync = ref.watch(playlistsControllerProvider);
+    final playlists = playlistsAsync.valueOrNull;
+    if (playlists == null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Ajouter à une playlist',
+            style: TextStyle(
+              color: t.ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: LanternSpace.md),
+          if (playlistsAsync.hasError)
+            Center(
+              child: TextButton.icon(
+                onPressed: () => ref.invalidate(playlistsControllerProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer le chargement'),
+              ),
+            )
+          else
+            const Center(child: CircularProgressIndicator()),
+        ],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Ajouter à une playlist',
-            style: TextStyle(
-                color: t.ink, fontSize: 16, fontWeight: FontWeight.w500)),
+        Text(
+          'Ajouter à une playlist',
+          style: TextStyle(
+            color: t.ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: LanternSpace.md),
         // Création inline : nom + ajout en un geste.
         Row(
@@ -85,8 +127,10 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
         if (playlists.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: LanternSpace.md),
-            child: Text('Aucune playlist pour l’instant.',
-                style: TextStyle(color: t.inkSoft, fontSize: 13)),
+            child: Text(
+              'Aucune playlist pour l’instant.',
+              style: TextStyle(color: t.inkSoft, fontSize: 13),
+            ),
           )
         else
           Flexible(
@@ -103,20 +147,24 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
                     color: inIt ? t.accent : t.inkSoft,
                   ),
                   title: Text(p.name, style: TextStyle(color: t.ink)),
-                  subtitle: Text(passageCount(p.items.length),
-                      style: TextStyle(color: t.inkSoft, fontSize: 12)),
+                  subtitle: Text(
+                    passageCount(p.items.length),
+                    style: TextStyle(color: t.inkSoft, fontSize: 12),
+                  ),
                   onTap: () async {
                     await ref
                         .read(playlistsControllerProvider.notifier)
                         .togglePassage(p.id, widget.selection);
                     HapticFeedback.selectionClick();
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      duration: const Duration(milliseconds: 900),
-                      content: Text(inIt
-                          ? 'Retiré de ${p.name}'
-                          : 'Ajouté à ${p.name}'),
-                    ));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        duration: const Duration(milliseconds: 900),
+                        content: Text(
+                          inIt ? 'Retiré de ${p.name}' : 'Ajouté à ${p.name}',
+                        ),
+                      ),
+                    );
                   },
                 );
               },

@@ -176,7 +176,9 @@ void main(List<String> args) {
     'schema': 2,
     'generatedFrom': 'JuzReviz2 (Tanzil uthmani + words wbw + tafsir)',
     'attribution':
-        'Texte: Tanzil.net (CC). Gloses/traductions/tafsir: corpus desktop (CC BY-NC).',
+        'Texte uthmani: Tanzil Project (CC BY 3.0, notice embarquee). '
+        'Gloses/traductions/tafsirs: corpus desktop; licences et provenance '
+        'a documenter avant distribution.',
     'surahCount': surahs.length,
     'verseCount': totalVerses,
     'wordCount': totalWords,
@@ -191,7 +193,9 @@ void main(List<String> args) {
 
   final mb = (tafsirGz / 1048576).toStringAsFixed(1);
   final raw = (tafsirRaw / 1048576).toStringAsFixed(1);
-  print('OK : ${surahs.length} sourates, $totalVerses versets, $totalWords mots.');
+  print(
+    'OK : ${surahs.length} sourates, $totalVerses versets, $totalWords mots.',
+  );
   print('Tafsir : ${tafsirFiles.length} fichiers, $raw Mo -> $mb Mo gzip.');
   if (totalVerses != 6236) {
     stderr.writeln('ATTENTION : attendu 6236 versets, obtenu $totalVerses.');
@@ -214,8 +218,14 @@ List<int> _gzipDeterministic(List<int> data) {
 // --- Parsing XML (regex, tags simples et bien formés) ---
 
 class _Surah {
-  _Surah(this.number, this.ayahCount, this.arabicName, this.transliteration,
-      this.englishName, this.revelation);
+  _Surah(
+    this.number,
+    this.ayahCount,
+    this.arabicName,
+    this.transliteration,
+    this.englishName,
+    this.revelation,
+  );
   final int number;
   final int ayahCount;
   final String arabicName;
@@ -236,14 +246,16 @@ List<_Surah> _parseSurahs(String xml) {
   for (final m in re.allMatches(xml)) {
     final attrs = _attrs(m[1]!);
     final type = (attrs['type'] ?? '').toLowerCase();
-    out.add(_Surah(
-      int.parse(attrs['index']!),
-      int.parse(attrs['ayas']!),
-      attrs['name'] ?? '',
-      attrs['tname'] ?? '',
-      attrs['ename'] ?? '',
-      type == 'medinan' ? 'medinan' : 'meccan',
-    ));
+    out.add(
+      _Surah(
+        int.parse(attrs['index']!),
+        int.parse(attrs['ayas']!),
+        attrs['name'] ?? '',
+        attrs['tname'] ?? '',
+        attrs['ename'] ?? '',
+        type == 'medinan' ? 'medinan' : 'meccan',
+      ),
+    );
   }
   out.sort((a, b) => a.number.compareTo(b.number));
   return out;
@@ -263,7 +275,9 @@ List<_JuzStart> _parseJuzStarts(String xml, List<_Surah> surahs) {
     final attrs = _attrs(m[1]!);
     final sura = int.parse(attrs['sura']!);
     final aya = int.parse(attrs['aya']!);
-    out.add(_JuzStart(int.parse(attrs['index']!), (starts[sura] ?? 0) + aya - 1));
+    out.add(
+      _JuzStart(int.parse(attrs['index']!), (starts[sura] ?? 0) + aya - 1),
+    );
   }
   out.sort((a, b) => a.index.compareTo(b.index));
   return out;
@@ -301,10 +315,10 @@ List<int> _writeJson(String path, Object data) {
 }
 
 Map<String, Object> _fileEntry(String name, List<int> bytes) => {
-      'path': name,
-      'bytes': bytes.length,
-      'hash': _fnv1a(bytes),
-    };
+  'path': name,
+  'bytes': bytes.length,
+  'hash': _fnv1a(bytes),
+};
 
 /// FNV-1a 64-bit (hex) — déterministe, sans dépendance (vérif idempotence).
 String _fnv1a(List<int> bytes) {

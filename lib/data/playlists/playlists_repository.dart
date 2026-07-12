@@ -9,11 +9,19 @@ class PlaylistsRepository {
   Future<List<Playlist>> load() async {
     final raw = await _store.read(_name);
     final list = (raw?['playlists'] as List?) ?? const [];
-    return list
-        .map((e) => Playlist.fromJson((e as Map).cast<String, dynamic>()))
-        .toList();
+    final playlists = <Playlist>[];
+    for (final entry in list) {
+      if (entry is! Map) continue;
+      try {
+        playlists.add(Playlist.fromJson(entry.cast<String, dynamic>()));
+      } on FormatException {
+        // Ignore seulement l'entree invalide et conserve les autres listes.
+      }
+    }
+    return playlists;
   }
 
-  Future<void> save(List<Playlist> playlists) =>
-      _store.write(_name, {'playlists': playlists.map((p) => p.toJson()).toList()});
+  Future<void> save(List<Playlist> playlists) => _store.write(_name, {
+    'playlists': playlists.map((p) => p.toJson()).toList(),
+  });
 }

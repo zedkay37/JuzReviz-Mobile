@@ -32,10 +32,10 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   int get _count => _surahs.length + _juz.length;
 
   List<Selection> _selections() => [
-        for (final n in _surahs.keys.toList()..sort())
-          SelSurah(n, _surahs[n]!.$1, _surahs[n]!.$2),
-        for (final j in _juz.toList()..sort()) SelJuz(j),
-      ];
+    for (final n in _surahs.keys.toList()..sort())
+      SelSurah(n, _surahs[n]!.$1, _surahs[n]!.$2),
+    for (final j in _juz.toList()..sort()) SelJuz(j),
+  ];
 
   List<String> _allKeys(List<SurahMeta> metas) {
     final keys = <String>[];
@@ -63,12 +63,15 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
       final first = (_surahs.keys.toList()..sort()).first;
       final name =
           metas.where((m) => m.number == first).firstOrNull?.transliteration ??
-              'Sourate $first';
+          'Sourate $first';
       final (from, to) = _surahs[first]!;
       final meta = metas.where((m) => m.number == first).firstOrNull;
-      final range =
-          meta != null && (from != 1 || to != meta.ayahCount) ? ' $from–$to' : '';
-      return _surahs.length > 1 ? '$name$range +${_surahs.length - 1}' : '$name$range';
+      final range = meta != null && (from != 1 || to != meta.ayahCount)
+          ? ' $from–$to'
+          : '';
+      return _surahs.length > 1
+          ? '$name$range +${_surahs.length - 1}'
+          : '$name$range';
     }
     if (_juz.isNotEmpty) {
       final j = (_juz.toList()..sort()).first;
@@ -78,16 +81,30 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   }
 
   Future<void> _save() async {
-    final name = await promptText(context,
-        title: 'Nom de la playlist', hint: 'Ma révision');
+    try {
+      await ref.read(playlistsControllerProvider.future);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de charger les playlists.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final name = await promptText(
+      context,
+      title: 'Nom de la playlist',
+      hint: 'Ma révision',
+    );
     if (name == null || name.trim().isEmpty) return;
     await ref
         .read(playlistsControllerProvider.notifier)
         .createWithSelections(name.trim(), _selections());
     if (!mounted) return;
     HapticFeedback.selectionClick();
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« ${name.trim()} » enregistrée')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('« ${name.trim()} » enregistrée')));
     setState(() {
       _surahs.clear();
       _juz.clear();
@@ -103,20 +120,33 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
       length: 2,
       child: LanternScaffold(
         appBar: AppBar(
-          title: Text(_count == 0
-              ? 'Réciter'
-              : '$_count ${pluralize(_count, 'sélection', 'sélections')}'),
+          title: Text(
+            _count == 0
+                ? 'Réciter'
+                : '$_count ${pluralize(_count, 'sélection', 'sélections')}',
+          ),
           actions: [
             if (_count > 0)
               TextButton(onPressed: _save, child: const Text('Enregistrer')),
           ],
           bottom: const TabBar(
-            tabs: [Tab(text: 'Sourates'), Tab(text: 'Juz')],
+            tabs: [
+              Tab(text: 'Sourates'),
+              Tab(text: 'Juz'),
+            ],
           ),
         ),
         body: metasAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+          error: (_, _) => LanternEmpty(
+            message:
+                'Impossible de charger les sourates. Réessayez avant de créer votre sélection.',
+            action: OutlinedButton.icon(
+              onPressed: () => ref.invalidate(surahMetasProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ),
           data: (metas) => TabBarView(
             children: [
               ListView.builder(
@@ -169,15 +199,20 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
       leading: _badge(t, '${m.number}', on),
       title: Text(m.transliteration, style: TextStyle(color: t.ink)),
       subtitle: Text(
-          isPartial
-              ? 'Plage : ${range.$1}–${range.$2}'
-              : '${m.ayahCount} versets · ${m.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}',
-          style: TextStyle(
-              color: isPartial ? t.accent : t.inkSoft, fontSize: 12)),
-      trailing: Text(m.arabicName,
-          textDirection: TextDirection.rtl,
-          style: TextStyle(
-              color: t.inkSoft, fontSize: 18, fontFamily: t.arabicFamily)),
+        isPartial
+            ? 'Plage : ${range.$1}–${range.$2}'
+            : '${m.ayahCount} versets · ${m.revelation == Revelation.meccan ? 'Mecquoise' : 'Médinoise'}',
+        style: TextStyle(color: isPartial ? t.accent : t.inkSoft, fontSize: 12),
+      ),
+      trailing: Text(
+        m.arabicName,
+        textDirection: TextDirection.rtl,
+        style: TextStyle(
+          color: t.inkSoft,
+          fontSize: 18,
+          fontFamily: t.arabicFamily,
+        ),
+      ),
     );
   }
 
@@ -213,11 +248,11 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   }
 
   Widget _badge(LanternTokens t, String label, bool on) => CircleAvatar(
-        backgroundColor: on ? t.accent : t.surfaceHigh,
-        child: on
-            ? Icon(Icons.check, color: t.accentInk, size: 20)
-            : Text(label, style: TextStyle(color: t.accent, fontSize: 13)),
-      );
+    backgroundColor: on ? t.accent : t.surfaceHigh,
+    child: on
+        ? Icon(Icons.check, color: t.accentInk, size: 20)
+        : Text(label, style: TextStyle(color: t.accent, fontSize: 13)),
+  );
 }
 
 /// Accès directs au-dessus du composeur : reprendre la dernière position,
@@ -272,15 +307,17 @@ class _QuickActions extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Reprendre la récitation',
-                                style:
-                                    TextStyle(color: t.inkSoft, fontSize: 12)),
+                            Text(
+                              'Reprendre la récitation',
+                              style: TextStyle(color: t.inkSoft, fontSize: 12),
+                            ),
                             Text(
                               '${meta.transliteration} · verset $ayah',
                               style: TextStyle(
-                                  color: t.ink,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500),
+                                color: t.ink,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
@@ -297,8 +334,11 @@ class _QuickActions extends ConsumerWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: ActionChip(
-                  avatar: Icon(Icons.local_fire_department,
-                      size: 18, color: t.fragile),
+                  avatar: Icon(
+                    Icons.local_fire_department,
+                    size: 18,
+                    color: t.fragile,
+                  ),
                   label: Text('Écouter mes versets à revoir (${queue.length})'),
                   onPressed: () => context.push(
                     '/recite',
@@ -346,7 +386,10 @@ class _SurahRangeSheetState extends State<_SurahRangeSheet> {
         Text(
           'Plage — ${widget.meta.transliteration}',
           style: TextStyle(
-              color: t.ink, fontSize: 17, fontWeight: FontWeight.w500),
+            color: t.ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 2),
         Text('$max versets', style: TextStyle(color: t.inkSoft, fontSize: 12)),
@@ -418,7 +461,10 @@ class _SurahRangeSheetState extends State<_SurahRangeSheet> {
             '$value',
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: t.ink, fontSize: 20, fontWeight: FontWeight.w600),
+              color: t.ink,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         IconButton(

@@ -38,7 +38,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       appBar: AppBar(title: const Text('Micro-session')),
       body: versesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+        error: (_, _) => LanternEmpty(
+          message:
+              'Impossible de charger les versets de cette session. Réessayez dans un instant.',
+          action: OutlinedButton.icon(
+            onPressed: () =>
+                ref.invalidate(readerVersesProvider(widget.selection)),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+          ),
+        ),
         data: (verses) {
           if (verses.isEmpty) {
             return const LanternEmpty(message: 'Rien à réviser.');
@@ -54,8 +63,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.all(LanternSpace.sm),
-                child: Text('${_index + 1} / ${verses.length}',
-                    style: TextStyle(color: t.inkSoft)),
+                child: Text(
+                  '${_index + 1} / ${verses.length}',
+                  style: TextStyle(color: t.inkSoft),
+                ),
               ),
               Expanded(
                 // Swipe : gauche = fragile, droite = maîtrisé (mémoire
@@ -191,12 +202,19 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         children: [
           Icon(Icons.auto_awesome, color: t.accent, size: 40),
           const SizedBox(height: 12),
-          Text('Session terminée',
-              style: TextStyle(
-                  color: t.ink, fontSize: 22, fontWeight: FontWeight.w700)),
+          Text(
+            'Session terminée',
+            style: TextStyle(
+              color: t.ink,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
-          Text('$total versets revus · $_masteredCount maîtrisés · $_fragileCount fragiles',
-              style: TextStyle(color: t.inkSoft)),
+          Text(
+            '$total versets revus · $_masteredCount maîtrisés · $_fragileCount fragiles',
+            style: TextStyle(color: t.inkSoft),
+          ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: () => Navigator.of(context).maybePop(),

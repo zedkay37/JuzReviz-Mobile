@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:juzreviz/core/designsystem/components/heat_labels.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
@@ -65,25 +66,33 @@ class HeatTile extends StatelessWidget {
                   color: t.surfaceHigh,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('${meta.number}',
-                    style: TextStyle(
-                        color: t.accent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500)),
+                child: Text(
+                  '${meta.number}',
+                  style: TextStyle(
+                    color: t.accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
               const Spacer(),
               if (showHeat && heat.hasFragile)
                 Container(
                   width: 8,
                   height: 8,
-                  decoration:
-                      BoxDecoration(color: t.fragile, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: t.fragile,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               if (showHeat && scarred)
                 Padding(
                   padding: const EdgeInsets.only(left: 3),
-                  child: Icon(Icons.local_fire_department,
-                      size: 12, color: t.scar),
+                  child: Icon(
+                    Icons.local_fire_department,
+                    size: 12,
+                    color: t.scar,
+                  ),
                 ),
             ],
           ),
@@ -92,7 +101,10 @@ class HeatTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                color: t.ink, fontSize: 14, fontWeight: FontWeight.w500),
+              color: t.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           Text(
             showHeat && heat.needsReview > 0
@@ -106,7 +118,10 @@ class HeatTile extends StatelessWidget {
       ),
     );
     final wrapped = heroTag != null
-        ? Hero(tag: heroTag!, child: Material(type: MaterialType.transparency, child: tile))
+        ? Hero(
+            tag: heroTag!,
+            child: Material(type: MaterialType.transparency, child: tile),
+          )
         : tile;
     return InkWell(
       onTap: onTap,
@@ -136,25 +151,39 @@ class HeatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final color = t.heat(state);
-    return InkWell(
+    final interactive = onTap != null || onLongPress != null;
+    final stateLabel = heatLabelFr(state);
+    return Semantics(
+      container: true,
+      button: interactive,
+      enabled: interactive,
+      label: 'Verset $ayah',
+      value: scarred ? '$stateLabel, cicatrice' : stateLabel,
+      hint: onLongPress == null ? null : 'Appui long pour ouvrir les actions',
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: state == HeatState.blank
-              ? t.blank
-              : color.withValues(alpha: 0.9),
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(8),
-          border: scarred ? Border.all(color: t.scar, width: 1.5) : null,
-        ),
-        alignment: Alignment.center,
-        child: Text('$ayah',
-            style: TextStyle(
-                color: t.ink,
+          child: Container(
+            decoration: BoxDecoration(
+              color: t.heatCellBackground(state),
+              borderRadius: BorderRadius.circular(8),
+              border: scarred ? Border.all(color: t.scar, width: 1.5) : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$ayah',
+              style: TextStyle(
+                color: t.heatCellForeground(state),
                 fontSize: 12,
-                fontWeight: FontWeight.w500)),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

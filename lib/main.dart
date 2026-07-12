@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -10,12 +12,27 @@ import 'package:juzreviz/core/routing/app_router.dart';
 import 'package:juzreviz/data/audio/audio_controller.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // L'app se lance immédiatement ; l'audio en arrière-plan s'initialise après
-  // (terminé bien avant la première lecture) → jamais d'écran noir au démarrage.
-  unawaited(_initAudioBackground());
+  _registerBundledLicenses();
+  // Le package remplace le backend audio pendant son initialisation : son
+  // contrat impose de terminer cette étape avant de créer un AudioPlayer.
+  await _initAudioBackground();
   runApp(const ProviderScope(child: JuzRevizApp()));
+}
+
+void _registerBundledLicenses() {
+  LicenseRegistry.addLicense(() async* {
+    final amiriLicense = await rootBundle.loadString(
+      'assets/fonts/AmiriQuran-OFL.txt',
+    );
+    yield LicenseEntryWithLineBreaks(const ['Amiri Quran'], amiriLicense);
+
+    final tanzilNotice = await rootBundle.loadString(
+      'assets/licenses/Tanzil-Quran-Text-NOTICE.txt',
+    );
+    yield LicenseEntryWithLineBreaks(const ['Tanzil Quran Text'], tanzilNotice);
+  });
 }
 
 Future<void> _initAudioBackground() async {
@@ -38,15 +55,51 @@ class JuzRevizApp extends ConsumerStatefulWidget {
   ConsumerState<JuzRevizApp> createState() => _JuzRevizAppState();
 }
 
-class _JuzRevizAppState extends ConsumerState<JuzRevizApp> {
+class _JuzRevizAppState extends ConsumerState<JuzRevizApp>
+    with WidgetsBindingObserver {
   final _router = buildRouter();
+  Timer? _dayBoundaryTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleDayBoundaryRefresh();
     // (Re)planifie le rappel quotidien au démarrage (persistance post-reboot).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_syncReminderSettings());
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshTimeDerivedState();
+      _scheduleDayBoundaryRefresh();
+    }
+  }
+
+  void _refreshTimeDerivedState() {
+    ref
+      ..invalidate(atlasHeatProvider)
+      ..invalidate(decayQueueProvider)
+      ..invalidate(reviewSummaryProvider)
+      ..invalidate(streakProvider)
+      ..invalidate(hotZonesProvider);
+  }
+
+  void _scheduleDayBoundaryRefresh() {
+    _dayBoundaryTimer?.cancel();
+    final now = DateTime.now();
+    final nextDay = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).add(const Duration(seconds: 1));
+    _dayBoundaryTimer = Timer(nextDay.difference(now), () {
+      if (!mounted) return;
+      _refreshTimeDerivedState();
+      _scheduleDayBoundaryRefresh();
     });
   }
 
@@ -59,6 +112,14 @@ class _JuzRevizAppState extends ConsumerState<JuzRevizApp> {
     } catch (_) {
       // Startup must stay independent from local notification state.
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dayBoundaryTimer?.cancel();
+    _router.dispose();
+    super.dispose();
   }
 
   @override

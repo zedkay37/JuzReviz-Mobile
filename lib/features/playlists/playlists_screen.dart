@@ -13,8 +13,24 @@ class PlaylistsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final playlistsAsync = ref.watch(playlistsControllerProvider);
+    final playlists = playlistsAsync.valueOrNull;
+    if (playlists == null) {
+      return LanternScaffold(
+        appBar: AppBar(title: const Text('Playlists')),
+        body: playlistsAsync.hasError
+            ? LanternEmpty(
+                message: 'Impossible de charger les playlists.',
+                action: TextButton.icon(
+                  onPressed: () => ref.invalidate(playlistsControllerProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
     final t = context.lantern;
-    final playlists = ref.watch(playlistsControllerProvider).valueOrNull ?? [];
     return LanternScaffold(
       appBar: AppBar(title: const Text('Playlists')),
       floatingActionButton: FloatingActionButton(

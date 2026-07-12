@@ -20,4 +20,24 @@ void main() {
     expect(const SelSurah(2, 255, 257).label, '2:255–257');
     expect(const SelJuz(3).label, 'Juz 3');
   });
+
+  test('JSON invalide refuse les selections hors bornes', () {
+    expect(
+      () => Selection.fromJson({'mode': 'juz', 'juz': 31}),
+      throwsFormatException,
+    );
+    expect(
+      () => Selection.fromJson({
+        'mode': 'surah',
+        'surah': 2,
+        'from': 20,
+        'to': 10,
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => Selection.fromJson({'mode': 'inconnu'}),
+      throwsFormatException,
+    );
+  });
 }

@@ -168,8 +168,7 @@ class SwitchRow extends StatelessWidget {
         title: Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
         subtitle: subtitle == null
             ? null
-            : Text(subtitle!,
-                style: TextStyle(color: t.inkSoft, fontSize: 12)),
+            : Text(subtitle!, style: TextStyle(color: t.inkSoft, fontSize: 12)),
       ),
     );
   }
@@ -255,31 +254,46 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return GestureDetector(
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      inMutuallyExclusiveGroup: true,
+      label: label,
       onTap: enabled ? onTap : null,
-      child: AnimatedContainer(
-        duration: LanternMotion.fast,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected && enabled
-              ? t.accent.withValues(alpha: 0.18)
-              : t.surfaceHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected && enabled ? t.accent : Colors.transparent,
-            width: 1.2,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: !enabled
-                ? t.inkFaint
-                : selected
-                ? t.accent
-                : t.inkSoft,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: enabled ? onTap : null,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: AnimatedContainer(
+              duration: LanternMotion.fast,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected && enabled
+                    ? t.accent.withValues(alpha: 0.18)
+                    : t.surfaceHigh,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: selected && enabled ? t.accent : Colors.transparent,
+                  width: 1.2,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: !enabled
+                      ? t.inkFaint
+                      : selected
+                      ? t.accent
+                      : t.inkSoft,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -363,56 +377,75 @@ class ChoiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: LanternMotion.fast,
-        padding: const EdgeInsets.all(LanternSpace.md),
-        decoration: BoxDecoration(
-          color: selected ? t.accent.withValues(alpha: 0.10) : t.surface,
-          borderRadius: BorderRadius.circular(LanternSpace.radius),
-          border: Border.all(
-            color: selected ? t.accent : t.surfaceHigh,
-            width: selected ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? t.accent : t.inkSoft,
-              size: 20,
-            ),
-            const SizedBox(width: LanternSpace.md),
-            Expanded(
-              child: Column(
+    void activate() {
+      HapticFeedback.selectionClick();
+      onTap();
+    }
+
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      enabled: true,
+      inMutuallyExclusiveGroup: true,
+      label: title,
+      value: description,
+      onTap: activate,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: activate,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: AnimatedContainer(
+              duration: LanternMotion.fast,
+              padding: const EdgeInsets.all(LanternSpace.md),
+              decoration: BoxDecoration(
+                color: selected ? t.accent.withValues(alpha: 0.10) : t.surface,
+                borderRadius: BorderRadius.circular(LanternSpace.radius),
+                border: Border.all(
+                  color: selected ? t.accent : t.surfaceHigh,
+                  width: selected ? 1.6 : 1,
+                ),
+              ),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: t.ink,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: selected ? t.accent : t.inkSoft,
+                    size: 20,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: t.inkSoft,
-                      fontSize: 12,
-                      height: 1.4,
+                  const SizedBox(width: LanternSpace.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: t.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: t.inkSoft,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -435,51 +468,67 @@ class ThemeSwatch extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = tokensFor(theme);
     final t = context.lantern;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: LanternMotion.fast,
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: tokens.background,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected ? t.accent : tokens.surfaceHigh,
-                width: selected ? 2.5 : 1,
-              ),
-            ),
-            child: Center(
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: tokens.accent,
-                  shape: BoxShape.circle,
+    void activate() {
+      HapticFeedback.selectionClick();
+      onTap();
+    }
+
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      enabled: true,
+      inMutuallyExclusiveGroup: true,
+      label: theme.label,
+      onTap: activate,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: activate,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64, minHeight: 72),
+            child: Column(
+              children: [
+                AnimatedContainer(
+                  duration: LanternMotion.fast,
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: tokens.background,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected ? t.accent : tokens.surfaceHigh,
+                      width: selected ? 2.5 : 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: tokens.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    theme.label.split(' ').first,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? t.accent : t.inkSoft,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 64,
-            child: Text(
-              theme.label.split(' ').first,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? t.accent : t.inkSoft,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

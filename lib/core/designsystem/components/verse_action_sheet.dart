@@ -49,7 +49,10 @@ class VerseActionSheet extends ConsumerWidget {
     final manualScar = mastery?.scarred.contains(verseKey) ?? false;
     final implicitScar = mastery == null
         ? false
-        : hasImplicitScar(mastery.fragile[verseKey], mastery.mastered[verseKey]);
+        : hasImplicitScar(
+            mastery.fragile[verseKey],
+            mastery.mastered[verseKey],
+          );
     final scarred = manualScar || implicitScar;
     final settings =
         ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
@@ -118,27 +121,24 @@ class VerseActionSheet extends ConsumerWidget {
             icon: Icons.bolt,
             label: _isRange ? 'Marquer la plage fragile' : 'Marquer fragile',
             color: t.fragile,
-            onTap: () {
-              _forEachKey(
-                (k) =>
-                    ref.read(masteryControllerProvider.notifier).markFragile(k),
-              );
+            onTap: () async {
               HapticFeedback.mediumImpact();
               close();
+              await ref
+                  .read(masteryControllerProvider.notifier)
+                  .markFragileMany(_keys());
             },
           ),
           _ActionRow(
             icon: Icons.spa,
             label: _isRange ? 'Marquer la plage maîtrisée' : 'Marquer maîtrisé',
             color: t.fresh,
-            onTap: () {
-              _forEachKey(
-                (k) => ref
-                    .read(masteryControllerProvider.notifier)
-                    .markMastered(k),
-              );
+            onTap: () async {
               HapticFeedback.lightImpact();
               close();
+              await ref
+                  .read(masteryControllerProvider.notifier)
+                  .markMasteredMany(_keys());
             },
           ),
           if (!_isRange)
@@ -155,6 +155,57 @@ class VerseActionSheet extends ConsumerWidget {
                     .toggleScar(verseKey);
                 HapticFeedback.selectionClick();
                 close();
+              },
+            ),
+          if (!_isRange && mastery?.fragile.containsKey(verseKey) == true)
+            _ActionRow(
+              icon: Icons.undo,
+              label: 'Effacer la difficulté',
+              onTap: () async {
+                await ref
+                    .read(masteryControllerProvider.notifier)
+                    .clearDifficulty(verseKey);
+                if (context.mounted) close();
+              },
+            ),
+          if (!_isRange &&
+              mastery != null &&
+              (mastery.fragile.containsKey(verseKey) ||
+                  mastery.mastered.containsKey(verseKey) ||
+                  mastery.scarred.contains(verseKey)))
+            _ActionRow(
+              icon: Icons.restart_alt,
+              label: 'Réinitialiser ce verset…',
+              color: t.fragile,
+              onTap: () async {
+                final confirmed =
+                    await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: const Text('Réinitialiser ce verset ?'),
+                        content: const Text(
+                          'La difficulté, la maîtrise et la cicatrice seront '
+                          'effacées pour ce verset.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(dialogContext, false),
+                            child: const Text('Annuler'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dialogContext, true),
+                            child: const Text('Réinitialiser'),
+                          ),
+                        ],
+                      ),
+                    ) ??
+                    false;
+                if (!confirmed) return;
+                await ref
+                    .read(masteryControllerProvider.notifier)
+                    .resetVerse(verseKey);
+                if (context.mounted) close();
               },
             ),
 
@@ -213,7 +264,7 @@ class VerseActionSheet extends ConsumerWidget {
               _ActionRow(
                 icon: Icons.stop_circle_outlined,
                 label: 'Arrêter la lecture',
-                color: const Color(0xFFA32D2D),
+                color: t.fragile,
                 onTap: () {
                   close();
                   onStop!();
@@ -225,17 +276,12 @@ class VerseActionSheet extends ConsumerWidget {
     );
   }
 
-  void _forEachKey(void Function(String) action) {
-    if (!_isRange) {
-      action(verseKey);
-      return;
-    }
+  List<String> _keys() {
+    if (!_isRange) return [verseKey];
     final surah = int.parse(verseKey.split(':')[0]);
     final from = int.parse(verseKey.split(':')[1]);
     final to = int.parse(rangeEnd!.split(':')[1]);
-    for (var a = from; a <= to; a++) {
-      action('$surah:$a');
-    }
+    return [for (var a = from; a <= to; a++) '$surah:$a'];
   }
 }
 

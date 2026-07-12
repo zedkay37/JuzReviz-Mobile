@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/enums.dart';
+import 'package:juzreviz/domain/model/surah_meta.dart';
+import 'package:juzreviz/domain/usecase/atlas_heat.dart';
 
 const day = 86400000;
 const now = 1700000000000; // base d'horloge fixe
@@ -10,69 +12,113 @@ int daysAgo(int d) => now - d * day;
 void main() {
   group('verseHeatState — parité desktop', () {
     test('aucune donnée → blank', () {
-      expect(verseHeatState(null, null, MasteryProfile.serenity, now),
-          HeatState.blank);
+      expect(
+        verseHeatState(null, null, MasteryProfile.serenity, now),
+        HeatState.blank,
+      );
     });
 
     test('fragile seul → fragile', () {
       expect(
-          verseHeatState(Fragile(daysAgo(1), 1), null,
-              MasteryProfile.serenity, now),
-          HeatState.fragile);
+        verseHeatState(
+          Fragile(daysAgo(1), 1),
+          null,
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.fragile,
+      );
     });
 
     test('maîtrisé récent (sérénité) → fresh', () {
       expect(
-          verseHeatState(null, Mastered(daysAgo(10)),
-              MasteryProfile.serenity, now),
-          HeatState.fresh);
+        verseHeatState(
+          null,
+          Mastered(daysAgo(10)),
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.fresh,
+      );
     });
 
     test('maîtrisé 200j (sérénité) → fading', () {
       expect(
-          verseHeatState(null, Mastered(daysAgo(200)),
-              MasteryProfile.serenity, now),
-          HeatState.fading);
+        verseHeatState(
+          null,
+          Mastered(daysAgo(200)),
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.fading,
+      );
     });
 
     test('maîtrisé 400j (sérénité) → stale', () {
       expect(
-          verseHeatState(null, Mastered(daysAgo(400)),
-              MasteryProfile.serenity, now),
-          HeatState.stale);
+        verseHeatState(
+          null,
+          Mastered(daysAgo(400)),
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.stale,
+      );
     });
 
     test('les deux, échec plus récent → fragile', () {
       expect(
-          verseHeatState(Fragile(daysAgo(1), 2), Mastered(daysAgo(5)),
-              MasteryProfile.serenity, now),
-          HeatState.fragile);
+        verseHeatState(
+          Fragile(daysAgo(1), 2),
+          Mastered(daysAgo(5)),
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.fragile,
+      );
     });
 
     test('les deux, maîtrise plus récente, jeune → fresh', () {
       expect(
-          verseHeatState(Fragile(daysAgo(10), 2), Mastered(daysAgo(2)),
-              MasteryProfile.serenity, now),
-          HeatState.fresh);
+        verseHeatState(
+          Fragile(daysAgo(10), 2),
+          Mastered(daysAgo(2)),
+          MasteryProfile.serenity,
+          now,
+        ),
+        HeatState.fresh,
+      );
     });
 
     test('probation count>=5 (excellence) borne fresh à 3j', () {
       // factor = min(2.5, 1+5*0.15)=1.75 ; fresh=min(30/1.75, 3)=3 ; fading=90/1.75≈51.4
       expect(
-          verseHeatState(Fragile(daysAgo(40), 5), Mastered(daysAgo(2)),
-              MasteryProfile.excellence, now),
-          HeatState.fresh);
+        verseHeatState(
+          Fragile(daysAgo(40), 5),
+          Mastered(daysAgo(2)),
+          MasteryProfile.excellence,
+          now,
+        ),
+        HeatState.fresh,
+      );
       expect(
-          verseHeatState(Fragile(daysAgo(40), 5), Mastered(daysAgo(4)),
-              MasteryProfile.excellence, now),
-          HeatState.fading);
+        verseHeatState(
+          Fragile(daysAgo(40), 5),
+          Mastered(daysAgo(4)),
+          MasteryProfile.excellence,
+          now,
+        ),
+        HeatState.fading,
+      );
     });
   });
 
   group('hasImplicitScar', () {
     test('maîtrisé avec échecs passés → scarred', () {
-      expect(hasImplicitScar(Fragile(daysAgo(10), 3), Mastered(daysAgo(2))),
-          isTrue);
+      expect(
+        hasImplicitScar(Fragile(daysAgo(10), 3), Mastered(daysAgo(2))),
+        isTrue,
+      );
     });
 
     test('maîtrisé sans échec → non scarred', () {
@@ -80,8 +126,10 @@ void main() {
     });
 
     test('échec plus récent → fragile, non scarred', () {
-      expect(hasImplicitScar(Fragile(daysAgo(1), 1), Mastered(daysAgo(5))),
-          isFalse);
+      expect(
+        hasImplicitScar(Fragile(daysAgo(1), 1), Mastered(daysAgo(5))),
+        isFalse,
+      );
     });
   });
 
@@ -89,13 +137,43 @@ void main() {
     test('agrège warmth / hasFragile / dominant', () {
       final fragile = {'2:1': Fragile(daysAgo(1), 1)};
       final mastered = {'2:2': Mastered(daysAgo(2))};
-      final heat =
-          surahHeat(2, 3, fragile, mastered, MasteryProfile.serenity, now);
+      final heat = surahHeat(
+        2,
+        3,
+        fragile,
+        mastered,
+        MasteryProfile.serenity,
+        now,
+      );
       expect(heat.total, 3);
       expect(heat.hasFragile, isTrue);
       expect(heat.dominant, HeatState.fragile);
       expect(heat.needsReview, greaterThanOrEqualTo(1));
       expect(heat.warmth, greaterThan(0));
     });
+  });
+
+  test('Atlas conserve une cicatrice manuelle sans historique implicite', () {
+    const meta = SurahMeta(
+      number: 2,
+      ayahCount: 1,
+      arabicName: '',
+      transliteration: 'Al-Baqarah',
+      englishName: 'The Cow',
+      revelation: Revelation.medinan,
+      hasSajda: false,
+      juzStart: 1,
+    );
+
+    final tiles = buildAtlasHeat(
+      const [meta],
+      const {},
+      const {},
+      MasteryProfile.serenity,
+      now,
+      manualScarred: const {'2:1'},
+    );
+
+    expect(tiles.single.scarred, isTrue);
   });
 }

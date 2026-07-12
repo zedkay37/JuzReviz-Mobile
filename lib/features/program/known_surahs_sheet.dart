@@ -6,13 +6,19 @@ import 'package:juzreviz/core/designsystem/components/lantern_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 
-/// Ensemencement au premier lancement : « Coche ce que tu connais déjà ».
-/// Multi-sélection des 114 sourates → seedKnownSurahs (maîtrise + mémorisées).
-Future<void> showKnownSurahsSheet(BuildContext context) =>
-    showLanternSheet<void>(context, builder: (_) => const _KnownSurahsSheet());
+/// Ensemencement initial ou gestion ultérieure des sourates mémorisées.
+Future<void> showKnownSurahsSheet(
+  BuildContext context, {
+  bool manageExisting = false,
+}) => showLanternSheet<void>(
+  context,
+  builder: (_) => _KnownSurahsSheet(manageExisting: manageExisting),
+);
 
 class _KnownSurahsSheet extends ConsumerStatefulWidget {
-  const _KnownSurahsSheet();
+  const _KnownSurahsSheet({required this.manageExisting});
+
+  final bool manageExisting;
 
   @override
   ConsumerState<_KnownSurahsSheet> createState() => _KnownSurahsSheetState();
@@ -20,25 +26,50 @@ class _KnownSurahsSheet extends ConsumerStatefulWidget {
 
 class _KnownSurahsSheetState extends ConsumerState<_KnownSurahsSheet> {
   final Set<int> _selected = {};
+  bool _initialized = false;
 
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
+    final metasAsync = ref.watch(surahMetasProvider);
+    final masteryAsync = ref.watch(masteryControllerProvider);
+    final metas = metasAsync.valueOrNull;
+    if (metas == null || (widget.manageExisting && !masteryAsync.hasValue)) {
+      return const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_initialized) {
+      if (widget.manageExisting) {
+        _selected.addAll(
+          masteryAsync.valueOrNull?.memorizedSurahs ?? const <int>{},
+        );
+      }
+      _initialized = true;
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Que connais-tu déjà par cœur ?',
+          widget.manageExisting
+              ? 'Mes sourates mémorisées'
+              : 'Que connais-tu déjà par cœur ?',
           style: TextStyle(
-              color: t.ink, fontSize: 18, fontWeight: FontWeight.w500),
+            color: t.ink,
+            fontSize: 18,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Coche tes sourates mémorisées : tes révisions commencent dès '
-          'aujourd’hui, par petites vagues quotidiennes — pas tout d’un coup.',
+          widget.manageExisting
+              ? 'Ajoute ou retire les marqueurs. Retirer une sourate conserve '
+                    'son historique de révision.'
+              : 'Coche tes sourates mémorisées : tes révisions commencent dès '
+                    'aujourd’hui, par petites vagues quotidiennes — pas tout d’un coup.',
           style: TextStyle(color: t.inkSoft, fontSize: 13, height: 1.35),
         ),
         const SizedBox(height: LanternSpace.md),
@@ -95,32 +126,47 @@ class _KnownSurahsSheetState extends ConsumerState<_KnownSurahsSheet> {
         ),
         const SizedBox(height: LanternSpace.md),
         FilledButton(
-          onPressed: _selected.isEmpty
+          onPressed: _selected.isEmpty && !widget.manageExisting
               ? null
               : () async {
                   final byNum = {for (final m in metas) m.number: m.ayahCount};
                   final n = _selected.length;
                   final messenger = ScaffoldMessenger.of(context);
-                  await ref
-                      .read(masteryControllerProvider.notifier)
-                      .seedKnownSurahs({
+                  final selected = {
                     for (final s in _selected) s: byNum[s] ?? 1,
-                  });
+                  };
+                  final controller = ref.read(
+                    masteryControllerProvider.notifier,
+                  );
+                  if (widget.manageExisting) {
+                    await controller.setKnownSurahs(selected);
+                  } else {
+                    await controller.seedKnownSurahs(selected);
+                  }
                   if (!context.mounted) return;
                   Navigator.of(context).pop();
-                  messenger.showSnackBar(SnackBar(
-                    content: Text(
-                        '$n sourate${n > 1 ? 's' : ''} au programme — tes '
-                        'premières révisions t’attendent.'),
-                  ));
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        widget.manageExisting
+                            ? 'Sourates mémorisées mises à jour.'
+                            : '$n sourate${n > 1 ? 's' : ''} au programme — tes '
+                                  'premières révisions t’attendent.',
+                      ),
+                    ),
+                  );
                 },
-          child: Text(_selected.isEmpty
-              ? 'Coche au moins une sourate'
-              : 'Valider (${_selected.length})'),
+          child: Text(
+            widget.manageExisting
+                ? 'Enregistrer (${_selected.length})'
+                : _selected.isEmpty
+                ? 'Coche au moins une sourate'
+                : 'Valider (${_selected.length})',
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Je pars de zéro'),
+          child: Text(widget.manageExisting ? 'Annuler' : 'Je pars de zéro'),
         ),
       ],
     );

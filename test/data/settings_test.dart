@@ -26,7 +26,10 @@ void main() {
   });
 
   test('valeurs hors bornes clampées', () {
-    final s = Settings.fromJsonSanitized({'playbackRate': 9.0, 'veilWords': 99});
+    final s = Settings.fromJsonSanitized({
+      'playbackRate': 9.0,
+      'veilWords': 99,
+    });
     expect(s.playbackRate, 2.0);
     expect(s.veilWords, 10);
   });
@@ -53,5 +56,23 @@ void main() {
     expect(readerLayoutFromString('mushafTajweed'), ReaderLayout.mushaf);
     expect(readerLayoutFromString('mushafMadni'), ReaderLayout.mushaf);
     expect(readerLayoutFromString('inconnu'), ReaderLayout.flexible);
+  });
+
+  test('valeurs persistantes invalides reviennent a des valeurs sures', () {
+    final s = Settings.fromJsonSanitized({
+      'reciter': '../../hors-cache',
+      'contentLang': 'de',
+      'theme': 'inconnu',
+      'reminderTime': '27:99',
+      'currentVerseKey': '../1:999',
+      'readerLayout': 'inconnu',
+    });
+
+    expect(s.reciter, 'ar.alafasy');
+    expect(s.contentLang, 'fr');
+    expect(s.theme, 'lanterne');
+    expect(s.reminderTime, '08:00');
+    expect(s.currentVerseKey, '1:1');
+    expect(s.readerLayout, ReaderLayout.flexible.id);
   });
 }

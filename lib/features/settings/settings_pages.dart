@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,18 +9,37 @@ import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/audio/reciters.dart';
-import 'package:juzreviz/data/mastery/mastery_state.dart';
-import 'package:juzreviz/data/playlists/playlist.dart';
+import 'package:juzreviz/data/backup/backup_payload.dart';
 import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
+import 'package:juzreviz/features/program/known_surahs_sheet.dart';
 import 'package:juzreviz/features/settings/setting_widgets.dart';
 import 'package:path_provider/path_provider.dart';
 
-Settings _s(WidgetRef ref) =>
-    ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
-
 void _edit(WidgetRef ref, Settings Function(Settings) f) =>
     ref.read(settingsControllerProvider.notifier).edit(f);
+
+Widget _pendingSettingsPage(
+  String title,
+  WidgetRef ref, {
+  required bool hasError,
+  VoidCallback? onRetry,
+}) {
+  return LanternScaffold(
+    appBar: AppBar(title: Text(title)),
+    body: hasError
+        ? LanternEmpty(
+            message: 'Impossible de charger ces réglages.',
+            action: TextButton.icon(
+              onPressed:
+                  onRetry ?? () => ref.invalidate(settingsControllerProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          )
+        : const Center(child: CircularProgressIndicator()),
+  );
+}
 
 // ----------------------------------------------------------------- Récitation
 
@@ -30,7 +48,15 @@ class RecitationPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = _s(ref);
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final s = settingsAsync.valueOrNull;
+    if (s == null) {
+      return _pendingSettingsPage(
+        'Récitation',
+        ref,
+        hasError: settingsAsync.hasError,
+      );
+    }
     final t = context.lantern;
     return LanternScaffold(
       appBar: AppBar(title: const Text('Récitation')),
@@ -92,7 +118,15 @@ class ReadingPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = _s(ref);
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final s = settingsAsync.valueOrNull;
+    if (s == null) {
+      return _pendingSettingsPage(
+        'Lecture & affichage',
+        ref,
+        hasError: settingsAsync.hasError,
+      );
+    }
     const langs = [('fr', 'Français'), ('en', 'Anglais')];
     return LanternScaffold(
       appBar: AppBar(title: const Text('Lecture & affichage')),
@@ -192,7 +226,23 @@ class RevisionPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = _s(ref);
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final masteryAsync = ref.watch(masteryControllerProvider);
+    final s = settingsAsync.valueOrNull;
+    final mastery = masteryAsync.valueOrNull;
+    if (s == null || mastery == null) {
+      return _pendingSettingsPage(
+        'Révision',
+        ref,
+        hasError: settingsAsync.hasError || masteryAsync.hasError,
+        onRetry: () {
+          ref
+            ..invalidate(settingsControllerProvider)
+            ..invalidate(masteryControllerProvider);
+        },
+      );
+    }
+    final memorizedCount = mastery.memorizedSurahs.length;
     return LanternScaffold(
       appBar: AppBar(title: const Text('Révision')),
       body: ListView(
@@ -235,14 +285,49 @@ class RevisionPage extends ConsumerWidget {
               SwitchRow(
                 title: 'Rappels de révision',
                 value: s.remindersEnabled,
-                onChanged: (v) {
-                  _edit(ref, (p) => p.copyWith(remindersEnabled: v));
-                  ref
-                      .read(notificationServiceProvider)
-                      .apply(enabled: v, hhmm: s.reminderTime);
+                onChanged: (v) async {
+                  final service = ref.read(notificationServiceProvider);
+                  if (!v) {
+                    await service.apply(enabled: false, hhmm: s.reminderTime);
+                    await ref
+                        .read(settingsControllerProvider.notifier)
+                        .edit((p) => p.copyWith(remindersEnabled: false));
+                    return;
+                  }
+                  final applied = await service.apply(
+                    enabled: true,
+                    hhmm: s.reminderTime,
+                  );
+                  if (!context.mounted) return;
+                  if (applied) {
+                    await ref
+                        .read(settingsControllerProvider.notifier)
+                        .edit((p) => p.copyWith(remindersEnabled: true));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Rappel non activé. Autorise les notifications dans '
+                          'les réglages du téléphone, puis réessaie.',
+                        ),
+                      ),
+                    );
+                  }
                 },
               ),
               if (s.remindersEnabled) _ReminderTimeRow(time: s.reminderTime),
+              ListTile(
+                leading: const Icon(Icons.checklist),
+                title: const Text('Sourates mémorisées'),
+                subtitle: Text(
+                  memorizedCount == 0
+                      ? 'Ajouter les sourates que tu connais'
+                      : '$memorizedCount sourate${memorizedCount > 1 ? 's' : ''}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    showKnownSurahsSheet(context, manageExisting: true),
+              ),
             ],
           ),
         ],
@@ -281,10 +366,22 @@ class _ReminderTimeRow extends ConsumerWidget {
         if (picked == null) return;
         final hh = picked.hour.toString().padLeft(2, '0');
         final mm = picked.minute.toString().padLeft(2, '0');
-        _edit(ref, (p) => p.copyWith(reminderTime: '$hh:$mm'));
-        ref
+        final next = '$hh:$mm';
+        final applied = await ref
             .read(notificationServiceProvider)
-            .apply(enabled: true, hhmm: '$hh:$mm');
+            .apply(enabled: true, hhmm: next);
+        if (!context.mounted) return;
+        if (applied) {
+          await ref
+              .read(settingsControllerProvider.notifier)
+              .edit((p) => p.copyWith(reminderTime: next));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible de programmer ce rappel.'),
+            ),
+          );
+        }
       },
     );
   }
@@ -297,7 +394,15 @@ class AppearancePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = _s(ref);
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final s = settingsAsync.valueOrNull;
+    if (s == null) {
+      return _pendingSettingsPage(
+        'Apparence',
+        ref,
+        hasError: settingsAsync.hasError,
+      );
+    }
     final current = appThemeFromString(s.theme);
     return LanternScaffold(
       appBar: AppBar(title: const Text('Apparence')),
@@ -335,6 +440,17 @@ class DataPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final masteryAsync = ref.watch(masteryControllerProvider);
+    final playlistsAsync = ref.watch(playlistsControllerProvider);
+    final settingsReady = settingsAsync.valueOrNull != null;
+    final masteryReady = masteryAsync.valueOrNull != null;
+    final playlistsReady = playlistsAsync.valueOrNull != null;
+    final backupReady = settingsReady && masteryReady && playlistsReady;
+    final backupHasError =
+        settingsAsync.hasError ||
+        masteryAsync.hasError ||
+        playlistsAsync.hasError;
     return LanternScaffold(
       appBar: AppBar(title: const Text('Données')),
       body: ListView(
@@ -355,17 +471,37 @@ class DataPage extends ConsumerWidget {
           SettingGroup(
             children: [
               ListTile(
-                leading: const Icon(Icons.upload_file),
-                title: const Text('Exporter l’état de révision'),
-                subtitle: const Text('Fichier de sauvegarde (+ presse-papiers)'),
-                onTap: () => _export(context, ref),
+                leading: const Icon(Icons.save_outlined),
+                title: const Text('Créer une sauvegarde locale'),
+                subtitle: Text(
+                  backupReady
+                      ? 'Copie locale dans l’app · JSON copiable sur demande'
+                      : 'Chargement des données…',
+                ),
+                onTap: backupReady ? () => _export(context, ref) : null,
               ),
               ListTile(
                 leading: const Icon(Icons.download),
                 title: const Text('Importer'),
-                subtitle: const Text('Depuis le fichier de sauvegarde, ou coller un JSON'),
-                onTap: () => _import(context, ref),
+                subtitle: Text(
+                  backupReady
+                      ? 'Restaurer la copie locale ou coller un JSON'
+                      : 'Chargement des données…',
+                ),
+                onTap: backupReady ? () => _import(context, ref) : null,
               ),
+              if (backupHasError)
+                ListTile(
+                  leading: const Icon(Icons.refresh),
+                  title: const Text('Données indisponibles'),
+                  subtitle: const Text('Réessayer le chargement'),
+                  onTap: () {
+                    ref
+                      ..invalidate(settingsControllerProvider)
+                      ..invalidate(masteryControllerProvider)
+                      ..invalidate(playlistsControllerProvider);
+                  },
+                ),
             ],
           ),
         ],
@@ -379,32 +515,54 @@ class DataPage extends ConsumerWidget {
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
-    final settings = _s(ref);
-    final mastery =
-        ref.read(masteryControllerProvider).valueOrNull ?? const MasteryState();
-    final playlists =
-        ref.read(playlistsControllerProvider).valueOrNull ?? const <Playlist>[];
-    final payload = jsonEncode({
-      'settings': settings.toJson(),
-      'mastery': mastery.toJson(),
-      'playlists': playlists.map((p) => p.toJson()).toList(),
-    });
-    final path = await _backupPath();
-    await File(path).writeAsString(payload);
-    await Clipboard.setData(ClipboardData(text: payload));
+    late final String payload;
+    try {
+      final settings = await ref.read(settingsControllerProvider.future);
+      final mastery = await ref.read(masteryControllerProvider.future);
+      final playlists = await ref.read(playlistsControllerProvider.future);
+      payload = BackupPayload(
+        settings: settings,
+        mastery: mastery,
+        playlists: playlists,
+      ).encode();
+      final path = await _backupPath();
+      await File(path).writeAsString(payload);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de créer la sauvegarde.')),
+      );
+      return;
+    }
     if (!context.mounted) return;
-    await showDialog<void>(
+    final copyJson = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Export enregistré'),
-        content: Text('Fichier : $path\n\nAussi copié dans le presse-papiers.'),
+        title: const Text('Sauvegarde locale créée'),
+        content: const Text(
+          'Une copie a été enregistrée dans l’espace géré par JuzReviz. Aucun '
+          'fichier portable n’a été créé ni placé dans tes Documents. Selon la '
+          'configuration du téléphone, cette copie peut être incluse dans une '
+          'sauvegarde système.\n\nPour la conserver manuellement ailleurs, copie '
+          'volontairement le JSON puis colle-le dans un emplacement sûr.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Copier le JSON'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Fermer'),
           ),
         ],
       ),
+    );
+    if (copyJson != true) return;
+    await Clipboard.setData(ClipboardData(text: payload));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('JSON copié dans le presse-papiers.')),
     );
   }
 
@@ -418,7 +576,10 @@ class DataPage extends ConsumerWidget {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Importer'),
-          content: Text('Fichier de sauvegarde trouvé :\n${backupFile.path}'),
+          content: const Text(
+            'Une copie locale gérée par JuzReviz est disponible sur cet '
+            'appareil.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'paste'),
@@ -426,7 +587,7 @@ class DataPage extends ConsumerWidget {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'file'),
-              child: const Text('Importer ce fichier'),
+              child: const Text('Restaurer la copie locale'),
             ),
           ],
         ),
@@ -449,51 +610,116 @@ class DataPage extends ConsumerWidget {
       );
     }
     if (raw == null || raw.trim().isEmpty) return;
+    late final BackupPayload backup;
     try {
-      final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
-      if (map['settings'] is Map) {
+      backup = BackupPayload.decode(raw);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sauvegarde invalide ou incompatible.')),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+
+    final historyCount = {
+      ...backup.mastery.fragile.keys,
+      ...backup.mastery.mastered.keys,
+    }.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restaurer cette sauvegarde ?'),
+        content: Text(
+          'Cette action remplace les réglages, la progression et les playlists '
+          'actuels par :\n\n'
+          '• ${backup.mastery.memorizedSurahs.length} sourates mémorisées\n'
+          '• $historyCount versets avec un historique\n'
+          '• ${backup.playlists.length} playlists',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final previousSettings = await ref.read(settingsControllerProvider.future);
+    final previousMastery = await ref.read(masteryControllerProvider.future);
+    final previousPlaylists = await ref.read(
+      playlistsControllerProvider.future,
+    );
+    var reminderFailed = false;
+    try {
+      await Future.wait([
+        ref.read(settingsRepositoryProvider).save(backup.settings),
+        ref.read(masteryRepositoryProvider).save(backup.mastery),
+        ref.read(playlistsRepositoryProvider).save(backup.playlists),
+      ]);
+      final reminderApplied = await ref
+          .read(notificationServiceProvider)
+          .apply(
+            enabled: backup.settings.remindersEnabled,
+            hhmm: backup.settings.reminderTime,
+          );
+      if (backup.settings.remindersEnabled && !reminderApplied) {
+        reminderFailed = true;
         await ref
             .read(settingsRepositoryProvider)
-            .save(
-              Settings.fromJsonSanitized(
-                (map['settings'] as Map).cast<String, dynamic>(),
-              ),
-            );
-      }
-      if (map['mastery'] is Map) {
-        await ref
-            .read(masteryRepositoryProvider)
-            .save(
-              MasteryState.fromJson(
-                (map['mastery'] as Map).cast<String, dynamic>(),
-              ),
-            );
-      }
-      if (map['playlists'] is List) {
-        await ref
-            .read(playlistsRepositoryProvider)
-            .save(
-              (map['playlists'] as List)
-                  .map(
-                    (e) =>
-                        Playlist.fromJson((e as Map).cast<String, dynamic>()),
-                  )
-                  .toList(),
-            );
+            .save(backup.settings.copyWith(remindersEnabled: false));
       }
       ref
         ..invalidate(settingsControllerProvider)
         ..invalidate(masteryControllerProvider)
         ..invalidate(playlistsControllerProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Import réussi.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            reminderFailed
+                ? 'Sauvegarde restaurée. Le rappel n’a pas pu être activé.'
+                : 'Sauvegarde restaurée.',
+          ),
+        ),
+      );
     } catch (_) {
+      // Restauration best-effort de l'état précédent si une des trois
+      // écritures échoue : aucune section ne doit rester à moitié importée.
+      try {
+        await Future.wait([
+          ref.read(settingsRepositoryProvider).save(previousSettings),
+          ref.read(masteryRepositoryProvider).save(previousMastery),
+          ref.read(playlistsRepositoryProvider).save(previousPlaylists),
+        ]);
+        await ref
+            .read(notificationServiceProvider)
+            .apply(
+              enabled: previousSettings.remindersEnabled,
+              hhmm: previousSettings.reminderTime,
+            );
+      } catch (_) {
+        // L'erreur principale reste signalée ; le prochain chargement relira
+        // le dernier état que le stockage a réussi à conserver.
+      }
+      ref
+        ..invalidate(settingsControllerProvider)
+        ..invalidate(masteryControllerProvider)
+        ..invalidate(playlistsControllerProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('JSON invalide.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Restauration interrompue. Vérifie tes données avant de réessayer.',
+          ),
+        ),
+      );
     }
   }
 }
@@ -560,19 +786,41 @@ class AboutPage extends StatelessWidget {
                   style: TextStyle(color: t.ink),
                 ),
                 subtitle: Text(
-                  'Texte uthmani : Tanzil.net. Gloses, traductions & tafsir : '
-                  'corpus word-by-word (CC BY-NC). Police arabe : Amiri Quran '
-                  '(SIL OFL). Mushaf : polices QCF (KFGQPC).',
+                  'Texte uthmani : Tanzil Project (tanzil.net), CC BY 3.0 ; '
+                  'notice complète embarquée. Police arabe : Amiri Quran '
+                  '(SIL OFL). Mushaf : polices QCF (KFGQPC). Les provenances '
+                  'et licences exactes des gloses, traductions et tafsirs '
+                  'restent à finaliser avant distribution.',
                   style: TextStyle(color: t.inkSoft),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.gavel_outlined),
+                title: Text(
+                  'Licences et notices',
+                  style: TextStyle(color: t.ink),
+                ),
+                subtitle: Text(
+                  'Consulter Tanzil, les polices et les composants open source',
+                  style: TextStyle(color: t.inkSoft),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: 'JuzReviz',
                 ),
               ),
               ListTile(
                 title: Text('Vie privée', style: TextStyle(color: t.ink)),
                 subtitle: Text(
-                  'Aucune donnée personnelle ne quitte l’appareil, aucun '
-                  'tracking. L’audio et le pack mushaf sont récupérés depuis '
-                  'everyayah.com, audio.qurancdn.com et quran.foundation '
-                  '(fichiers statiques, aucun identifiant transmis).',
+                  'Aucun compte, aucune publicité et aucun tracking. La '
+                  'progression, les réglages et les playlists sont stockés '
+                  'localement ; selon les réglages du téléphone, ils peuvent '
+                  'être inclus dans une sauvegarde système. Les téléchargements '
+                  'contactent everyayah.com, audio.qurancdn.com et '
+                  'verses.quran.foundation : ces hébergeurs reçoivent les '
+                  'informations réseau nécessaires à la livraison, jamais ta '
+                  'progression ni tes playlists.',
                   style: TextStyle(color: t.inkSoft),
                 ),
               ),

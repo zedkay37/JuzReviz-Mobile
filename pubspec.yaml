@@ -1,7 +1,7 @@
 name: juzreviz
 description: "JuzReviz - Le Coran qui vit dans ta journee"
 publish_to: 'none'
-version: 1.4.0+4
+version: 1.6.3+5
 
 environment:
   sdk: ^3.11.5
@@ -38,6 +38,8 @@ flutter:
     - assets/tafsir/fr/
     - assets/tafsir/en/
     - assets/mushaf/pages.json
+    - assets/fonts/AmiriQuran-OFL.txt
+    - assets/licenses/Tanzil-Quran-Text-NOTICE.txt
 
   fonts:
     - family: AmiriQuran

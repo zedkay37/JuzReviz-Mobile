@@ -22,16 +22,27 @@ class TafsirPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.lantern;
-    final lang = ref.watch(settingsControllerProvider
-        .select((s) => (s.valueOrNull ?? const Settings()).contentLang));
-    final normLang = lang == 'en' ? 'en' : 'fr';
-    final tafsirAsync =
-        ref.watch(verseTafsirProvider((lang: normLang, verseKey: verseKey)));
+    final prefs = ref.watch(
+      settingsControllerProvider.select((s) {
+        final value = s.valueOrNull ?? const Settings();
+        return (
+          lang: value.contentLang,
+          theme: appThemeFromString(value.theme),
+        );
+      }),
+    );
+    final normLang = prefs.lang == 'en' ? 'en' : 'fr';
+    final tafsirAsync = ref.watch(
+      verseTafsirProvider((lang: normLang, verseKey: verseKey)),
+    );
 
-    // Surface « parchemin » pour un confort de lecture longue (tokens dédiés).
-    final parch = tokensFor(AppTheme.parchemin);
-    final parchment = parch.background;
-    final ink = parch.ink;
+    // Surface « parchemin » pour la lecture longue, sauf si l'utilisateur a
+    // explicitement demandé le contraste élevé : ce choix reste prioritaire.
+    final panelTokens = prefs.theme == AppTheme.highContrast
+        ? t
+        : tokensFor(AppTheme.parchemin);
+    final panelBackground = panelTokens.background;
+    final ink = panelTokens.ink;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -39,10 +50,12 @@ class TafsirPanel extends ConsumerWidget {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) => Container(
+        key: const ValueKey('tafsir-panel-surface'),
         decoration: BoxDecoration(
-          color: parchment,
+          color: panelBackground,
           borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(LanternSpace.radius)),
+            top: Radius.circular(LanternSpace.radius),
+          ),
         ),
         child: Column(
           children: [
@@ -50,13 +63,26 @@ class TafsirPanel extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
               child: Row(
                 children: [
-                  Icon(Icons.menu_book, color: ink.withValues(alpha: 0.7), size: 20),
+                  Icon(
+                    Icons.menu_book,
+                    color: ink.withValues(alpha: 0.7),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
-                  Text('Tafsir · $verseKey',
-                      style: TextStyle(
-                          color: ink, fontSize: 16, fontWeight: FontWeight.w500)),
+                  Text(
+                    'Tafsir · $verseKey',
+                    style: TextStyle(
+                      color: ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const Spacer(),
-                  _LangToggle(current: normLang, ink: ink, accent: t.accent),
+                  _LangToggle(
+                    current: normLang,
+                    ink: ink,
+                    accent: panelTokens.accent,
+                  ),
                   IconButton(
                     icon: Icon(Icons.close, color: ink),
                     onPressed: () => Navigator.of(context).pop(),
@@ -64,17 +90,49 @@ class TafsirPanel extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(height: 1, color: Color(0x33000000)),
+            Divider(height: 1, color: panelTokens.border),
             Expanded(
               child: tafsirAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Erreur : $e')),
+                loading: () => Center(
+                  child: CircularProgressIndicator(color: panelTokens.accent),
+                ),
+                error: (_, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Impossible de charger ce tafsir. Réessayez dans un instant.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: ink),
+                        ),
+                        const SizedBox(height: LanternSpace.md),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(
+                            verseTafsirProvider((
+                              lang: normLang,
+                              verseKey: verseKey,
+                            )),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: panelTokens.accent,
+                          ),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 data: (text) => text.trim().isEmpty
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
-                          child: Text('Pas de tafsir pour ce verset.',
-                              style: TextStyle(color: ink)),
+                          child: Text(
+                            'Pas de tafsir pour ce verset.',
+                            style: TextStyle(color: ink),
+                          ),
                         ),
                       )
                     : SingleChildScrollView(
@@ -83,7 +141,10 @@ class TafsirPanel extends ConsumerWidget {
                         child: SelectableText(
                           text,
                           style: TextStyle(
-                              color: ink, fontSize: 16, height: 1.7),
+                            color: ink,
+                            fontSize: 16,
+                            height: 1.7,
+                          ),
                         ),
                       ),
               ),
@@ -97,7 +158,11 @@ class TafsirPanel extends ConsumerWidget {
 
 /// Bascule FR/EN — pilote la langue unique (gloses, traduction, tafsir).
 class _LangToggle extends ConsumerWidget {
-  const _LangToggle({required this.current, required this.ink, required this.accent});
+  const _LangToggle({
+    required this.current,
+    required this.ink,
+    required this.accent,
+  });
   final String current;
   final Color ink;
   final Color accent;
@@ -116,18 +181,20 @@ class _LangToggle extends ConsumerWidget {
             color: on ? accent.withValues(alpha: 0.25) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  color: ink,
-                  fontWeight: on ? FontWeight.w500 : FontWeight.w400)),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: ink,
+              fontWeight: on ? FontWeight.w500 : FontWeight.w400,
+            ),
+          ),
         ),
       );
     }
 
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      chip('fr', 'FR'),
-      const SizedBox(width: 4),
-      chip('en', 'EN'),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [chip('fr', 'FR'), const SizedBox(width: 4), chip('en', 'EN')],
+    );
   }
 }

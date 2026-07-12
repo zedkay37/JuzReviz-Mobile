@@ -22,7 +22,8 @@ class ProgramScreen extends ConsumerWidget {
 
     // État vierge : rien de marqué → l'onboarding d'ensemencement prime.
     final mastery = ref.watch(masteryControllerProvider).valueOrNull;
-    final blank = mastery != null &&
+    final blank =
+        mastery != null &&
         mastery.mastered.isEmpty &&
         mastery.fragile.isEmpty &&
         mastery.memorizedSurahs.isEmpty;
@@ -31,7 +32,15 @@ class ProgramScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Aujourd’hui')),
       body: queueAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => LanternEmpty(message: 'Erreur : $e'),
+        error: (_, _) => LanternEmpty(
+          message:
+              'Impossible de charger le programme du jour. Réessayez dans un instant.',
+          action: OutlinedButton.icon(
+            onPressed: () => ref.invalidate(decayQueueProvider),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Réessayer'),
+          ),
+        ),
         data: (queue) {
           if (blank) return const _ColdStart();
           return Column(
@@ -39,7 +48,9 @@ class ProgramScreen extends ConsumerWidget {
               _Header(streak: streak, count: queue.length),
               const _HotZones(),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LanternSpace.md,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -126,17 +137,24 @@ class _HotZones extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
-              child: Text('Zones chaudes',
-                  style: TextStyle(color: t.inkSoft, fontSize: 12)),
+              child: Text(
+                'Zones chaudes',
+                style: TextStyle(color: t.inkSoft, fontSize: 12),
+              ),
             ),
           ),
           for (final z in zones)
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
-                avatar: Icon(Icons.local_fire_department,
-                    size: 16, color: t.heat(z.heat.dominant)),
-                label: Text('${z.meta.transliteration} · ${z.heat.needsReview}'),
+                avatar: Icon(
+                  Icons.local_fire_department,
+                  size: 16,
+                  color: t.heat(z.heat.dominant),
+                ),
+                label: Text(
+                  '${z.meta.transliteration} · ${z.heat.needsReview}',
+                ),
                 onPressed: () => context.push('/atlas/surah/${z.meta.number}'),
               ),
             ),
@@ -162,16 +180,28 @@ class _Header extends StatelessWidget {
           if (streak > 0) ...[
             Icon(Icons.local_fire_department, color: t.accent),
             const SizedBox(width: 6),
-            Text('$streak j',
-                style: TextStyle(
-                    color: t.ink, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(
+              '$streak j',
+              style: TextStyle(
+                color: t.ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(width: 4),
-            Text('de régularité',
-                style: TextStyle(color: t.inkSoft, fontSize: 13)),
+            Text(
+              'de régularité',
+              style: TextStyle(color: t.inkSoft, fontSize: 13),
+            ),
           ] else
-            Text('Ta révision du jour',
-                style: TextStyle(
-                    color: t.ink, fontSize: 16, fontWeight: FontWeight.w500)),
+            Text(
+              'Ta révision du jour',
+              style: TextStyle(
+                color: t.ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           const Spacer(),
           Text(
             count == 0 ? 'À jour' : '$count à revoir',
@@ -202,7 +232,10 @@ class _ColdStart extends StatelessWidget {
               'Commence avec ce que tu sais',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: t.ink, fontSize: 20, fontWeight: FontWeight.w500),
+                color: t.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

@@ -1,15 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:juzreviz/app/providers.dart';
+import 'package:juzreviz/core/common/clock.dart';
 import 'package:juzreviz/data/common/json_store.dart';
 import 'package:juzreviz/data/mastery/mastery_state.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 
+const _now = 1700000000000;
+
+class _FixedClock implements Clock {
+  const _FixedClock();
+
+  @override
+  int nowMs() => _now;
+}
+
 ProviderContainer _container() => ProviderContainer(
-      overrides: [jsonStoreProvider.overrideWithValue(MemoryJsonStore())],
-    );
+  overrides: [
+    jsonStoreProvider.overrideWithValue(MemoryJsonStore()),
+    clockProvider.overrideWithValue(const _FixedClock()),
+  ],
+);
 
 void main() {
   test('passageSelection : verset unique vs plage', () {
@@ -22,6 +35,28 @@ void main() {
     final back = MasteryState.fromJson(s.toJson());
     expect(back.scarred, {'2:255', '18:1'});
   });
+
+  test(
+    'MasteryState ignore les entrees corrompues sans perdre les valides',
+    () {
+      final state = MasteryState.fromJson({
+        'fragile': {
+          '2:1': {'markedAtMs': _now, 'count': 2},
+          '../x': 'invalide',
+        },
+        'mastered': {'2:2': <String, dynamic>{}, '999:1': null},
+        'scarred': ['2:1', 42, '999:1'],
+        'memorizedSurahs': [2, '3', 115],
+        'sessionDays': ['2026-07-11', 'hier'],
+      });
+
+      expect(state.fragile.keys, ['2:1']);
+      expect(state.mastered.keys, ['2:2']);
+      expect(state.scarred, {'2:1'});
+      expect(state.memorizedSurahs, {2});
+      expect(state.sessionDays, {'2026-07-11'});
+    },
+  );
 
   test('togglePassage est idempotent (ajout puis retrait)', () async {
     final c = _container();
@@ -89,58 +124,93 @@ void main() {
     expect(hasImplicitScar(null, Mastered(1000)), isFalse);
   });
 
-  test('seedKnownSurahs : petit lot (< cap) → tout dû dès aujourd’hui',
-      () async {
-    final c = _container();
-    addTearDown(c.dispose);
-    final ctrl = c.read(masteryControllerProvider.notifier);
-    await c.read(masteryControllerProvider.future);
-    final now = c.read(clockProvider).nowMs();
+  test(
+    'seedKnownSurahs : petit lot (< cap) → tout dû dès aujourd’hui',
+    () async {
+      final c = _container();
+      addTearDown(c.dispose);
+      final ctrl = c.read(masteryControllerProvider.notifier);
+      await c.read(masteryControllerProvider.future);
+      const now = _now;
 
-    await ctrl.seedKnownSurahs({1: 7});
-    final s = c.read(masteryControllerProvider).value!;
+      await ctrl.seedKnownSurahs({1: 7});
+      final s = c.read(masteryControllerProvider).value!;
 
-    expect(s.memorizedSurahs, {1});
-    expect(s.mastered.length, 7);
-    // 7 versets < la vague journalière (20) : aucun n'attend le lendemain.
-    for (var a = 1; a <= 7; a++) {
-      expect(
-        verseHeatState(null, s.mastered['1:$a'], MasteryProfile.serenity, now),
-        isNot(HeatState.fresh),
-        reason: '1:$a devrait être dû aujourd’hui',
-      );
-    }
-  });
-
-  test('seedKnownSurahs : gros lot → vague du jour garantie, reste étalé',
-      () async {
-    final c = _container();
-    addTearDown(c.dispose);
-    final ctrl = c.read(masteryControllerProvider.notifier);
-    await c.read(masteryControllerProvider.future);
-    final now = c.read(clockProvider).nowMs();
-
-    // 100 versets (5 sourates de 20) : bien plus que la vague de 20/jour.
-    await ctrl.seedKnownSurahs({for (var n = 1; n <= 5; n++) n: 20});
-    final s = c.read(masteryControllerProvider).value!;
-    expect(s.mastered.length, 100);
-
-    // La première vague (20 premiers versets, sourate 1 entière) est due
-    // aujourd'hui — pas un seul verset isolé.
-    var dueToday = 0;
-    for (var a = 1; a <= 20; a++) {
-      if (verseHeatState(null, s.mastered['1:$a'], MasteryProfile.serenity,
-              now) !=
-          HeatState.fresh) {
-        dueToday++;
+      expect(s.memorizedSurahs, {1});
+      expect(s.mastered.length, 7);
+      // 7 versets < la vague journalière (20) : aucun n'attend le lendemain.
+      for (var a = 1; a <= 7; a++) {
+        expect(
+          verseHeatState(
+            null,
+            s.mastered['1:$a'],
+            MasteryProfile.serenity,
+            now,
+          ),
+          isNot(HeatState.fresh),
+          reason: '1:$a devrait être dû aujourd’hui',
+        );
       }
-    }
-    expect(dueToday, 20);
+    },
+  );
 
-    // Le tout dernier verset (vague la plus lointaine) est encore frais.
-    expect(
-      verseHeatState(null, s.mastered['5:20'], MasteryProfile.serenity, now),
-      HeatState.fresh,
-    );
+  test(
+    'seedKnownSurahs : gros lot → vague du jour garantie, reste étalé',
+    () async {
+      final c = _container();
+      addTearDown(c.dispose);
+      final ctrl = c.read(masteryControllerProvider.notifier);
+      await c.read(masteryControllerProvider.future);
+      const now = _now;
+
+      // 100 versets (5 sourates de 20) : bien plus que la vague de 20/jour.
+      await ctrl.seedKnownSurahs({for (var n = 1; n <= 5; n++) n: 20});
+      final s = c.read(masteryControllerProvider).value!;
+      expect(s.mastered.length, 100);
+
+      // La première vague (20 premiers versets, sourate 1 entière) est due
+      // aujourd'hui — pas un seul verset isolé.
+      var dueToday = 0;
+      for (var a = 1; a <= 20; a++) {
+        if (verseHeatState(
+              null,
+              s.mastered['1:$a'],
+              MasteryProfile.serenity,
+              now,
+            ) !=
+            HeatState.fresh) {
+          dueToday++;
+        }
+      }
+      expect(dueToday, 20);
+
+      // Le tout dernier verset (vague la plus lointaine) est encore frais.
+      expect(
+        verseHeatState(null, s.mastered['5:20'], MasteryProfile.serenity, now),
+        HeatState.fresh,
+      );
+    },
+  );
+
+  test('les actions en lot persistent une seule revision coherente', () async {
+    final c = _container();
+    addTearDown(c.dispose);
+    final ctrl = c.read(masteryControllerProvider.notifier);
+    await c.read(masteryControllerProvider.future);
+
+    await ctrl.markFragileMany(const ['2:1', '2:2', '2:3']);
+    await ctrl.markMasteredMany(const ['2:1', '2:2']);
+    await ctrl.toggleScar('2:1');
+
+    final marked = c.read(masteryControllerProvider).value!;
+    expect(marked.fragile.keys, containsAll(const ['2:1', '2:2', '2:3']));
+    expect(marked.mastered.keys, containsAll(const ['2:1', '2:2']));
+    expect(marked.scarred, contains('2:1'));
+
+    await ctrl.resetVerses(const ['2:1', '2:2']);
+    final reset = c.read(masteryControllerProvider).value!;
+    expect(reset.fragile.keys, ['2:3']);
+    expect(reset.mastered, isEmpty);
+    expect(reset.scarred, isEmpty);
   });
 }

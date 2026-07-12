@@ -5,8 +5,8 @@ FR : `JuzReviz — Coran & révision`  (29)
 EN : `JuzReviz — Quran & Review`    (26)
 
 ## Description courte (80 car. max)
-FR : `Mémorise le Coran : révision intelligente, récitation audio, 100 % hors-ligne.`
-EN : `Memorize the Quran: smart review, audio recitation, fully offline.`
+FR : `Mémorise le Coran : révision guidée, audio hors ligne après téléchargement.`
+EN : `Memorize the Quran with smart review and audio available offline after download.`
 
 ## Description longue (FR)
 
@@ -29,8 +29,12 @@ téléchargement.
 complet hors-ligne (FR/EN), mode voile pour s'auto-tester, disposition
 Mushaf Madni (pack téléchargeable).
 
-**Vie privée** — Aucun compte, aucun tracking, aucune donnée personnelle
-transmise. Tout reste sur ton appareil. Export/sauvegarde en un fichier.
+**Vie privée** — Aucun compte, aucune publicité et aucun tracking. Ta
+progression, tes réglages et tes playlists restent stockés localement ; ils
+peuvent être inclus dans les sauvegardes système selon les réglages du
+téléphone. Les téléchargements de contenu contactent leurs hébergeurs, mais
+n’envoient ni ta progression ni tes playlists. Une copie locale peut être
+créée dans l’app ; le JSON n’est copié qu’à ta demande.
 
 ## Description longue (EN)
 
@@ -51,17 +55,20 @@ background and offline audio after download.
 tafsir (FR/EN), veil mode for self-testing, Madni Mushaf layout
 (downloadable pack).
 
-**Privacy** — No account, no tracking, no personal data transmitted.
-Everything stays on your device. One-file export/backup.
+**Privacy** — No account, ads, or tracking. Your progress, settings, and
+playlists are stored locally; depending on your phone settings, system backups
+may include them. Content downloads contact their hosting providers, but never
+upload your progress or playlists. The app can create a local backup, and only
+copies its JSON when you explicitly ask it to.
 
 ## Data Safety (réponses Play Console)
 
 | Question | Réponse |
 |---|---|
-| Collecte de données ? | **Non** — aucune donnée collectée ni partagée. |
-| Données chiffrées en transit ? | N/A (aucune donnée utilisateur transmise). HTTPS pour les téléchargements de contenu. |
-| Suppression de données possible ? | N/A (tout est local ; désinstaller = tout supprimer). |
-| Domaines contactés | everyayah.com, audio.qurancdn.com (audio), verses.quran.foundation (polices mushaf) — GET de fichiers statiques, aucun identifiant. |
+| Collecte de données ? | Aucun compte, analytics, publicité ou envoi de progression par JuzReviz. Les requêtes de téléchargement exposent aux hébergeurs les informations réseau nécessaires (par exemple l’adresse IP) ; revalider la déclaration exacte selon les règles Play Console et les dépendances de la build soumise. |
+| Données chiffrées en transit ? | Oui pour les téléchargements de contenu, effectués en HTTPS. |
+| Suppression de données possible ? | Les données de l’app sont locales : elles peuvent être effacées depuis les réglages Android ou en désinstallant l’app. Des copies peuvent subsister dans une sauvegarde système gérée par l’utilisateur. |
+| Domaines contactés | everyayah.com, audio.qurancdn.com (audio), verses.quran.foundation (polices mushaf). Les requêtes n’incluent ni compte, ni progression, ni playlist ; les hébergeurs peuvent traiter les métadonnées réseau nécessaires à la livraison. |
 | SDK tiers de tracking/ads | Aucun. |
 
 ## Assets à produire (hors repo)

@@ -12,7 +12,23 @@ class PlaylistDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlists = ref.watch(playlistsControllerProvider).valueOrNull ?? [];
+    final playlistsAsync = ref.watch(playlistsControllerProvider);
+    final playlists = playlistsAsync.valueOrNull;
+    if (playlists == null) {
+      return LanternScaffold(
+        appBar: AppBar(title: const Text('Playlist')),
+        body: playlistsAsync.hasError
+            ? LanternEmpty(
+                message: 'Impossible de charger cette playlist.',
+                action: TextButton.icon(
+                  onPressed: () => ref.invalidate(playlistsControllerProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
     final p = playlists.where((x) => x.id == playlistId).firstOrNull;
     if (p == null) {
       return const LanternScaffold(
