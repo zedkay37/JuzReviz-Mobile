@@ -5,6 +5,41 @@ import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
 
+final _mushafPageArabicProvider = FutureProvider.autoDispose
+    .family<Map<String, String>, int>((ref, page) async {
+      final lines = await ref.watch(mushafPageProvider(page).future);
+      final keysBySurah = <int, Set<String>>{};
+      for (final line in lines) {
+        for (final word in line.words) {
+          final parts = word.verseKey.split(':');
+          final surah = parts.length == 2 ? int.tryParse(parts.first) : null;
+          if (surah != null) {
+            keysBySurah.putIfAbsent(surah, () => <String>{}).add(word.verseKey);
+          }
+        }
+      }
+
+      final result = <String, String>{};
+      final repository = ref.read(corpusRepositoryProvider);
+      for (final entry in keysBySurah.entries) {
+        final verses = await repository.versesBySurah(entry.key);
+        for (final verse in verses) {
+          if (entry.value.contains(verse.verseKey) && verse.arabic.isNotEmpty) {
+            result[verse.verseKey] = verse.arabic;
+          }
+        }
+      }
+      return result;
+    });
+
+String mushafVerseSemanticsLabel(String verseKey, String? arabic) {
+  final reference = verseKey.replaceFirst(':', ', ');
+  final text = arabic?.trim();
+  return text == null || text.isEmpty
+      ? 'Verset $reference'
+      : 'Verset $reference. $text';
+}
+
 /// Vue moushaf paginée (police QCF par page). Navigation par pages (façon
 /// mushaf papier) — pas d'audio. Affichée quand la disposition Mushaf est
 /// choisie et le pack présent.
@@ -114,17 +149,23 @@ class _MushafViewState extends ConsumerState<MushafView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                OutlinedButton(
-                  onPressed: _page > 1 ? () => _go(-1, count) : null,
-                  child: const Icon(Icons.chevron_left),
+                Tooltip(
+                  message: 'Page précédente',
+                  child: OutlinedButton(
+                    onPressed: _page > 1 ? () => _go(-1, count) : null,
+                    child: const Icon(Icons.chevron_left),
+                  ),
                 ),
                 Text(
                   'Page $_page',
                   style: TextStyle(color: t.inkSoft, fontSize: 13),
                 ),
-                OutlinedButton(
-                  onPressed: _page < count ? () => _go(1, count) : null,
-                  child: const Icon(Icons.chevron_right),
+                Tooltip(
+                  message: 'Page suivante',
+                  child: OutlinedButton(
+                    onPressed: _page < count ? () => _go(1, count) : null,
+                    child: const Icon(Icons.chevron_right),
+                  ),
                 ),
               ],
             ),
@@ -145,6 +186,8 @@ class _MushafPage extends ConsumerWidget {
     final t = context.lantern;
     final linesAsync = ref.watch(mushafPageProvider(page));
     final fontAsync = ref.watch(mushafFontProvider(page));
+    final arabicByVerse =
+        ref.watch(_mushafPageArabicProvider(page)).valueOrNull ?? const {};
     final metas = ref.watch(surahMetasProvider).valueOrNull ?? const [];
 
     if (fontAsync.isLoading) {
@@ -170,7 +213,8 @@ class _MushafPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final line in lines) _line(context, t, metas, line),
+                  for (final line in lines)
+                    _line(context, t, metas, arabicByVerse, line),
                 ],
               ),
             ),
@@ -203,6 +247,7 @@ class _MushafPage extends ConsumerWidget {
     BuildContext context,
     LanternTokens t,
     List metas,
+    Map<String, String> arabicByVerse,
     MushafLine line,
   ) {
     const fontSize = 30.0;
@@ -252,22 +297,59 @@ class _MushafPage extends ConsumerWidget {
         );
         // Largeur intrinsèque (mainAxisSize.min) : la ligne prend sa taille
         // naturelle, mise à l'échelle ensuite par le FittedBox.
+        final groups = <List<MushafWord>>[];
+        for (final word in line.words) {
+          if (groups.isEmpty || groups.last.last.verseKey != word.verseKey) {
+            groups.add([word]);
+          } else {
+            groups.last.add(word);
+          }
+        }
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             textDirection: TextDirection.rtl,
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final w in line.words)
-                GestureDetector(
-                  onLongPress: onVerseLongPress == null
-                      ? null
-                      : () => onVerseLongPress!(w.verseKey),
-                  child: Text(w.glyph, style: style),
-                ),
+              for (final words in groups)
+                _verseGroup(words, style, arabicByVerse),
             ],
           ),
         );
     }
+  }
+
+  Widget _verseGroup(
+    List<MushafWord> words,
+    TextStyle style,
+    Map<String, String> arabicByVerse,
+  ) {
+    final verseKey = words.first.verseKey;
+    return Semantics(
+      container: true,
+      button: onVerseLongPress != null,
+      label: mushafVerseSemanticsLabel(verseKey, arabicByVerse[verseKey]),
+      hint: onVerseLongPress == null
+          ? null
+          : 'Appui long pour ouvrir les actions',
+      onLongPress: onVerseLongPress == null
+          ? null
+          : () => onVerseLongPress!(verseKey),
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: onVerseLongPress == null
+              ? null
+              : () => onVerseLongPress!(verseKey),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: TextDirection.rtl,
+            children: [
+              for (final word in words) Text(word.glyph, style: style),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -10,7 +10,6 @@ import 'package:juzreviz/app/providers.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/routing/app_router.dart';
 import 'package:juzreviz/data/audio/audio_controller.dart';
-import 'package:juzreviz/data/settings/settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +40,7 @@ Future<void> _initAudioBackground() async {
       androidNotificationChannelId: 'com.juzreviz.audio',
       androidNotificationChannelName: 'Lecture',
       androidNotificationOngoing: true,
+      androidNotificationIcon: 'drawable/ic_stat_juzreviz',
     );
     justAudioBackgroundReady = true;
   } catch (_) {
@@ -124,23 +124,122 @@ class _JuzRevizAppState extends ConsumerState<JuzRevizApp>
 
   @override
   Widget build(BuildContext context) {
-    final settings =
-        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final settings = settingsAsync.valueOrNull;
+    if (settings == null) {
+      return MaterialApp(
+        title: 'JuzReviz',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(AppTheme.lanterne),
+        supportedLocales: const [Locale('fr'), Locale('en')],
+        localizationsDelegates: _localizationsDelegates,
+        home: _StartupGate(
+          hasError: settingsAsync.hasError,
+          onRetry: () => ref.invalidate(settingsControllerProvider),
+        ),
+      );
+    }
     final theme = appThemeFromString(settings.theme);
     return MaterialApp.router(
       title: 'JuzReviz',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(theme),
       routerConfig: _router,
-      locale: settings.contentLang == 'en'
-          ? const Locale('en')
-          : const Locale('fr'),
+      // `contentLang` ne pilote que gloses/traduction/tafsir. L'interface
+      // reste française tant qu'aucune localisation UI complète n'existe.
+      locale: const Locale('fr'),
       supportedLocales: const [Locale('fr'), Locale('en')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      localizationsDelegates: _localizationsDelegates,
+    );
+  }
+}
+
+const _localizationsDelegates = [
+  GlobalMaterialLocalizations.delegate,
+  GlobalWidgetsLocalizations.delegate,
+  GlobalCupertinoLocalizations.delegate,
+];
+
+class _StartupGate extends StatelessWidget {
+  const _StartupGate({required this.hasError, required this.onRetry});
+
+  final bool hasError;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.lantern;
+    return Scaffold(
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 64)
+                    .clamp(0, double.infinity)
+                    .toDouble(),
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: t.accent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: t.accentSoft),
+                        ),
+                        child: Icon(
+                          Icons.auto_stories,
+                          color: t.accent,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'JuzReviz',
+                        style: TextStyle(
+                          color: t.ink,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (hasError) ...[
+                        Text(
+                          'Impossible de charger tes réglages locaux.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: t.inkSoft),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Réessayer'),
+                        ),
+                      ] else ...[
+                        Semantics(
+                          label: 'Chargement de JuzReviz',
+                          child: const SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

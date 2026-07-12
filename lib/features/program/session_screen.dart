@@ -35,12 +35,13 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
         ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
 
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Micro-session')),
       body: versesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => LanternEmpty(
           message:
-              'Impossible de charger les versets de cette session. Réessayez dans un instant.',
+              'Impossible de charger les versets de cette session. Réessaie dans un instant.',
           action: OutlinedButton.icon(
             onPressed: () =>
                 ref.invalidate(readerVersesProvider(widget.selection)),
@@ -159,27 +160,43 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   Widget _actions(String verseKey, int total) {
     final t = context.lantern;
     return SafeArea(
+      top: false,
       child: Padding(
         padding: const EdgeInsets.all(LanternSpace.md),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: t.fragile),
-                icon: const Icon(Icons.bolt),
-                label: const Text('Fragile'),
-                onPressed: () => _mark(verseKey, total, mastered: false),
-              ),
-            ),
-            const SizedBox(width: LanternSpace.sm),
-            Expanded(
-              child: FilledButton.icon(
-                icon: const Icon(Icons.spa),
-                label: const Text('Maîtrisé'),
-                onPressed: () => _mark(verseKey, total, mastered: true),
-              ),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stack =
+                constraints.maxWidth < 360 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.5;
+            final fragile = OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: t.fragile),
+              icon: const Icon(Icons.bolt),
+              label: const Text('Fragile'),
+              onPressed: () => _mark(verseKey, total, mastered: false),
+            );
+            final mastered = FilledButton.icon(
+              icon: const Icon(Icons.spa),
+              label: const Text('Maîtrisé'),
+              onPressed: () => _mark(verseKey, total, mastered: true),
+            );
+            if (stack) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  fragile,
+                  const SizedBox(height: LanternSpace.sm),
+                  mastered,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: fragile),
+                const SizedBox(width: LanternSpace.sm),
+                Expanded(child: mastered),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -196,31 +213,44 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
 
   Widget _summary(int total) {
     final t = context.lantern;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.auto_awesome, color: t.accent, size: 40),
-          const SizedBox(height: 12),
-          Text(
-            'Session terminée',
-            style: TextStyle(
-              color: t.ink,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: const EdgeInsets.all(LanternSpace.lg),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (constraints.maxHeight - LanternSpace.lg * 2)
+                .clamp(0, double.infinity)
+                .toDouble(),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, color: t.accent, size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  'Session terminée',
+                  style: TextStyle(
+                    color: t.ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$total versets revus · $_masteredCount maîtrisés · $_fragileCount fragiles',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: t.inkSoft),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('Revenir'),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '$total versets revus · $_masteredCount maîtrisés · $_fragileCount fragiles',
-            style: TextStyle(color: t.inkSoft),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            child: const Text('Revenir'),
-          ),
-        ],
+        ),
       ),
     );
   }

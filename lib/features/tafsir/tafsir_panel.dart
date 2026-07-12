@@ -10,6 +10,8 @@ Future<void> showTafsir(BuildContext context, WidgetRef ref, String verseKey) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    constraints: const BoxConstraints(maxWidth: 720),
     backgroundColor: Colors.transparent,
     builder: (_) => TafsirPanel(verseKey: verseKey),
   );
@@ -69,21 +71,23 @@ class TafsirPanel extends ConsumerWidget {
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Tafsir · $verseKey',
-                    style: TextStyle(
-                      color: ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      'Tafsir · $verseKey',
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   _LangToggle(
                     current: normLang,
                     ink: ink,
                     accent: panelTokens.accent,
                   ),
                   IconButton(
+                    tooltip: 'Fermer le tafsir',
                     icon: Icon(Icons.close, color: ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -103,7 +107,7 @@ class TafsirPanel extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Impossible de charger ce tafsir. Réessayez dans un instant.',
+                          'Impossible de charger ce tafsir. Réessaie dans un instant.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: ink),
                         ),
@@ -171,21 +175,39 @@ class _LangToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     Widget chip(String code, String label) {
       final on = current == code;
-      return GestureDetector(
-        onTap: () => ref
-            .read(settingsControllerProvider.notifier)
-            .edit((p) => p.copyWith(contentLang: code)),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: on ? accent.withValues(alpha: 0.25) : Colors.transparent,
+      void select() => ref
+          .read(settingsControllerProvider.notifier)
+          .edit((p) => p.copyWith(contentLang: code));
+      return Semantics(
+        container: true,
+        button: true,
+        selected: on,
+        inMutuallyExclusiveGroup: true,
+        label: label == 'FR' ? 'Tafsir en français' : 'Tafsir en anglais',
+        onTap: select,
+        child: ExcludeSemantics(
+          child: InkWell(
+            onTap: select,
             borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: ink,
-              fontWeight: on ? FontWeight.w500 : FontWeight.w400,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: on
+                      ? accent.withValues(alpha: 0.25)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: ink,
+                    fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

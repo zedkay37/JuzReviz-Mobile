@@ -368,28 +368,31 @@ class _ActionRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: color ?? (accent ? t.accent : t.inkSoft),
-              size: 21,
-            ),
-            const SizedBox(width: LanternSpace.md),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontSize: 15,
-                  fontWeight: accent ? FontWeight.w500 : FontWeight.w400,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: color ?? (accent ? t.accent : t.inkSoft),
+                size: 21,
+              ),
+              const SizedBox(width: LanternSpace.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 15,
+                    fontWeight: accent ? FontWeight.w500 : FontWeight.w400,
+                  ),
                 ),
               ),
-            ),
-            ?trailing,
-          ],
+              ?trailing,
+            ],
+          ),
         ),
       ),
     );

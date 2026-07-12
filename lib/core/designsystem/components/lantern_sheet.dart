@@ -12,6 +12,7 @@ Future<T?> showLanternSheet<T>(
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
+    constraints: const BoxConstraints(maxWidth: 640),
     backgroundColor: t.surface,
     showDragHandle: true,
     clipBehavior: Clip.antiAlias,
@@ -26,7 +27,7 @@ Future<T?> showLanternSheet<T>(
           .clamp(280.0, media.size.height)
           .toDouble();
       return AnimatedPadding(
-        duration: LanternMotion.fast,
+        duration: LanternMotion.resolve(ctx, LanternMotion.fast),
         curve: LanternMotion.emphasized,
         padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
         child: SafeArea(

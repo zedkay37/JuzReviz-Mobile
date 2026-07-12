@@ -76,6 +76,7 @@ class Settings {
     this.remindersEnabled = false,
     this.reminderTime = '08:00',
     this.currentVerseKey = '1:1',
+    this.hasReadingProgress = false,
     this.coachmarkSeen = false,
     this.batteryTipSeen = false,
     this.readerLayout = 'flexible',
@@ -131,6 +132,10 @@ class Settings {
       remindersEnabled: asB('remindersEnabled', def.remindersEnabled),
       reminderTime: reminderTime,
       currentVerseKey: currentVerseKey,
+      hasReadingProgress: asB(
+        'hasReadingProgress',
+        currentVerseKey != def.currentVerseKey,
+      ),
       coachmarkSeen: asB('coachmarkSeen', def.coachmarkSeen),
       batteryTipSeen: asB('batteryTipSeen', def.batteryTipSeen),
       readerLayout: readerLayoutFromString(
@@ -164,6 +169,7 @@ class Settings {
   final bool remindersEnabled;
   final String reminderTime;
   final String currentVerseKey;
+  final bool hasReadingProgress;
   final bool coachmarkSeen;
 
   /// Astuce batterie (audio coupé en arrière-plan) déjà affichée une fois.
@@ -192,6 +198,7 @@ class Settings {
     'remindersEnabled': remindersEnabled,
     'reminderTime': reminderTime,
     'currentVerseKey': currentVerseKey,
+    'hasReadingProgress': hasReadingProgress,
     'coachmarkSeen': coachmarkSeen,
     'batteryTipSeen': batteryTipSeen,
     'readerLayout': readerLayout,
@@ -219,6 +226,7 @@ class Settings {
     bool? remindersEnabled,
     String? reminderTime,
     String? currentVerseKey,
+    bool? hasReadingProgress,
     bool? coachmarkSeen,
     bool? batteryTipSeen,
     String? readerLayout,
@@ -244,6 +252,7 @@ class Settings {
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
     reminderTime: reminderTime ?? this.reminderTime,
     currentVerseKey: currentVerseKey ?? this.currentVerseKey,
+    hasReadingProgress: hasReadingProgress ?? this.hasReadingProgress,
     coachmarkSeen: coachmarkSeen ?? this.coachmarkSeen,
     batteryTipSeen: batteryTipSeen ?? this.batteryTipSeen,
     readerLayout: readerLayout ?? this.readerLayout,

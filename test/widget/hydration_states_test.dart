@@ -10,6 +10,7 @@ import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/features/playlists/playlists_screen.dart';
 import 'package:juzreviz/features/settings/settings_pages.dart';
 import 'package:juzreviz/features/settings/settings_screen.dart';
+import 'package:juzreviz/main.dart';
 
 class _DelayedJsonStore implements JsonStore {
   _DelayedJsonStore(this.delayedName);
@@ -27,12 +28,69 @@ class _DelayedJsonStore implements JsonStore {
   Future<void> write(String name, Map<String, dynamic> data) async {}
 }
 
+class _FailingJsonStore implements JsonStore {
+  @override
+  Future<Map<String, dynamic>?> read(String name) =>
+      Future.error(StateError('local storage unavailable'));
+
+  @override
+  Future<void> write(String name, Map<String, dynamic> data) async {}
+}
+
 Widget _app(JsonStore store, Widget child) => ProviderScope(
   overrides: [jsonStoreProvider.overrideWithValue(store)],
   child: MaterialApp(home: child),
 );
 
 void main() {
+  testWidgets(
+    'la racine attend les réglages avant de construire les parcours',
+    (tester) async {
+      final store = _DelayedJsonStore('settings');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [jsonStoreProvider.overrideWithValue(store)],
+          child: const JuzRevizApp(),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('JuzReviz'), findsOneWidget);
+      expect(find.text('Aujourd’hui'), findsNothing);
+
+      store.result.complete(null);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Aujourd’hui'), findsWidgets);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('l’erreur de démarrage reste utilisable en paysage à 200 %', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(568, 320);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [jsonStoreProvider.overrideWithValue(_FailingJsonStore())],
+        child: const JuzRevizApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Réessayer'), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('le profil attend les réglages au lieu d’afficher les défauts', (
     tester,
   ) async {

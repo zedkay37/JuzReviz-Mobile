@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/domain/model/selection.dart';
@@ -143,38 +144,87 @@ class _ShellScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Scaffold(
-      backgroundColor: t.background,
-      body: shell,
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: t.surface,
-        indicatorColor: t.accent.withValues(alpha: 0.2),
-        selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) =>
-            shell.goBranch(i, initialLocation: i == shell.currentIndex),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.local_fire_department_outlined),
-            selectedIcon: Icon(Icons.local_fire_department),
-            label: 'Aujourd’hui',
+    void select(int index) {
+      HapticFeedback.selectionClick();
+      shell.goBranch(index, initialLocation: index == shell.currentIndex);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 720) {
+          return Scaffold(
+            backgroundColor: t.background,
+            body: Row(
+              children: [
+                SafeArea(
+                  right: false,
+                  child: NavigationRail(
+                    minWidth: 82,
+                    groupAlignment: -0.82,
+                    labelType: NavigationRailLabelType.all,
+                    selectedIndex: shell.currentIndex,
+                    onDestinationSelected: select,
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.local_fire_department_outlined),
+                        selectedIcon: Icon(Icons.local_fire_department),
+                        label: Text('Aujourd’hui'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.menu_book_outlined),
+                        selectedIcon: Icon(Icons.menu_book),
+                        label: Text('Coran'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.record_voice_over_outlined),
+                        selectedIcon: Icon(Icons.graphic_eq),
+                        label: Text('Réciter'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings),
+                        label: Text('Réglages'),
+                      ),
+                    ],
+                  ),
+                ),
+                VerticalDivider(width: 1, color: t.border),
+                Expanded(child: shell),
+              ],
+            ),
+          );
+        }
+        return Scaffold(
+          backgroundColor: t.background,
+          body: shell,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: shell.currentIndex,
+            onDestinationSelected: select,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.local_fire_department_outlined),
+                selectedIcon: Icon(Icons.local_fire_department),
+                label: 'Aujourd’hui',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.menu_book_outlined),
+                selectedIcon: Icon(Icons.menu_book),
+                label: 'Coran',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.record_voice_over_outlined),
+                selectedIcon: Icon(Icons.graphic_eq),
+                label: 'Réciter',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings),
+                label: 'Réglages',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: 'Coran',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.graphic_eq),
-            selectedIcon: Icon(Icons.graphic_eq),
-            label: 'Réciter',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

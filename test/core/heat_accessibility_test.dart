@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:juzreviz/core/designsystem/components/heat_widgets.dart';
 import 'package:juzreviz/core/designsystem/lantern_theme.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
+import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/enums.dart';
+import 'package:juzreviz/domain/model/surah_meta.dart';
 
 double _contrastRatio(Color a, Color b) {
   final l1 = a.computeLuminance();
@@ -82,6 +84,60 @@ void main() {
         isEnabled: true,
         hasTapAction: true,
         hasLongPressAction: true,
+      ),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('HeatTile annonce son état sans dépendre de la couleur', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    const meta = SurahMeta(
+      number: 1,
+      ayahCount: 7,
+      arabicName: 'الفاتحة',
+      transliteration: 'Al-Fatiha',
+      englishName: 'The Opening',
+      revelation: Revelation.meccan,
+      hasSajda: false,
+      juzStart: 1,
+    );
+    const heat = SurahHeat(
+      warmth: 0.2,
+      hasFragile: true,
+      needsReview: 3,
+      total: 7,
+      dominant: HeatState.fragile,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(AppTheme.lanterne),
+        home: Scaffold(
+          body: SizedBox(
+            width: 180,
+            height: 110,
+            child: HeatTile(
+              meta: meta,
+              heat: heat,
+              scarred: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Sourate 1, Al-Fatiha')),
+      isSemantics(
+        label: 'Sourate 1, Al-Fatiha',
+        value: 'Fragile, 3 à revoir, versets fragiles, cicatrice',
+        isButton: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
       ),
     );
     semantics.dispose();

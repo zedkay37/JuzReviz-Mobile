@@ -174,6 +174,11 @@ class LanternMotion {
   static const Duration medium = Duration(milliseconds: 280);
   static const Duration slow = Duration(milliseconds: 460);
   static const Curve emphasized = Curves.easeOutCubic;
+
+  static Duration resolve(BuildContext context, Duration duration) =>
+      MediaQuery.maybeOf(context)?.disableAnimations ?? false
+      ? Duration.zero
+      : duration;
 }
 
 class LanternSpace {

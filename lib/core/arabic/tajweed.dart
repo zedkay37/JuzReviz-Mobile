@@ -18,12 +18,21 @@ import 'dart:ui' show Color;
 
 enum TajweedRule { ghunnah, madd, qalqalah, silent }
 
-/// Couleurs lisibles sur fond sombre comme sur parchemin.
-const tajweedColors = <TajweedRule, Color>{
+/// Palette pour les thèmes sombres.
+const tajweedColorsDark = <TajweedRule, Color>{
   TajweedRule.ghunnah: Color(0xFF66BB6A),
   TajweedRule.madd: Color(0xFFEF5350),
   TajweedRule.qalqalah: Color(0xFF64B5F6),
   TajweedRule.silent: Color(0xFF9E9E9E),
+};
+
+/// Palette plus sombre pour le thème Parchemin.
+/// Les couleurs précédentes tombaient sous 3:1 sur fond clair.
+const tajweedColorsLight = <TajweedRule, Color>{
+  TajweedRule.ghunnah: Color(0xFF1B5E20),
+  TajweedRule.madd: Color(0xFF9F201A),
+  TajweedRule.qalqalah: Color(0xFF0D47A1),
+  TajweedRule.silent: Color(0xFF555555),
 };
 
 /// Segment de texte + règle éventuelle (null = couleur de base).
@@ -44,8 +53,21 @@ const _qalqalahLetters = {'ق', 'ط', 'ب', 'ج', 'د'};
 const _idghamGhunnah = {'ي', 'ن', 'م', 'و'};
 const _idghamNoGhunnah = {'ل', 'ر'};
 const _ikhfa = {
-  'ت', 'ث', 'ج', 'د', 'ذ', 'ز', 'س', 'ش',
-  'ص', 'ض', 'ط', 'ظ', 'ف', 'ق', 'ك',
+  'ت',
+  'ث',
+  'ج',
+  'د',
+  'ذ',
+  'ز',
+  'س',
+  'ش',
+  'ص',
+  'ض',
+  'ط',
+  'ظ',
+  'ف',
+  'ق',
+  'ك',
 };
 
 bool _isDiacritic(String c) {

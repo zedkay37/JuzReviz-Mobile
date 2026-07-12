@@ -11,6 +11,7 @@ import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 import 'package:juzreviz/domain/model/surah_meta.dart';
 import 'package:juzreviz/features/atlas/atlas_screen.dart';
+import 'package:juzreviz/features/atlas/surah_picker.dart';
 
 /// Onglet « Coran » : navigateur unifié (liste ou carte de chaleur),
 /// coachmark léger au tout premier lancement. Tap → lecteur.
@@ -24,6 +25,22 @@ class QuranScreen extends ConsumerStatefulWidget {
 class _QuranScreenState extends ConsumerState<QuranScreen> {
   bool _coachmarkChecked = false;
   bool _grid = false;
+
+  Future<void> _pickAndOpenSurah() async {
+    final number = await pickSurah(context);
+    if (!mounted || number == null) return;
+    final metas = ref.read(surahMetasProvider).valueOrNull ?? const [];
+    final meta = metas.where((m) => m.number == number).firstOrNull;
+    if (meta == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cette sourate est momentanément indisponible.'),
+        ),
+      );
+      return;
+    }
+    context.push('/read', extra: SelSurah(number, 1, meta.ayahCount));
+  }
 
   void _maybeShowCoachmark(Settings s) {
     if (_coachmarkChecked || s.coachmarkSeen) return;
@@ -84,15 +101,22 @@ class _QuranScreenState extends ConsumerState<QuranScreen> {
     _maybeShowCoachmark(s);
 
     return LanternScaffold(
+      contentMaxWidth: _grid ? null : 760,
       appBar: AppBar(
         title: const Text('Coran'),
         actions: [
           IconButton(
-            tooltip: _grid ? 'Vue liste' : 'Carte de chaleur',
+            tooltip: 'Rechercher une sourate',
+            icon: const Icon(Icons.search),
+            onPressed: _pickAndOpenSurah,
+          ),
+          TextButton.icon(
+            onPressed: () => setState(() => _grid = !_grid),
             icon: Icon(
               _grid ? Icons.view_list_outlined : Icons.grid_view_outlined,
+              size: 20,
             ),
-            onPressed: () => setState(() => _grid = !_grid),
+            label: Text(_grid ? 'Liste' : 'Atlas'),
           ),
         ],
       ),
@@ -119,7 +143,7 @@ class _SurahListBody extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, _) => LanternEmpty(
         message:
-            'Impossible de charger la liste des sourates. Réessayez dans un instant.',
+            'Impossible de charger la liste des sourates. Réessaie dans un instant.',
         action: OutlinedButton.icon(
           onPressed: () => ref.invalidate(surahMetasProvider),
           icon: const Icon(Icons.refresh),
@@ -127,7 +151,9 @@ class _SurahListBody extends ConsumerWidget {
         ),
       ),
       data: (metas) {
-        final resume = metas.where((m) => m.number == resumeSurah).firstOrNull;
+        final resume = settings.hasReadingProgress
+            ? metas.where((m) => m.number == resumeSurah).firstOrNull
+            : null;
         return ListView.builder(
           itemCount: metas.length + (resume != null ? 1 : 0),
           itemBuilder: (_, i) {

@@ -572,6 +572,21 @@ class PlaylistsController extends AsyncNotifier<List<Playlist>> {
     ],
   );
 
+  /// Réinsère un passage retiré, à sa position d'origine (action Annuler).
+  Future<void> restoreItem(String playlistId, PlaylistItem item, int index) =>
+      _update(
+        (current) => [
+          for (final p in current)
+            if (p.id == playlistId && !p.items.any((i) => i.id == item.id))
+              p.copyWith(
+                items: [...p.items]
+                  ..insert(index.clamp(0, p.items.length).toInt(), item),
+              )
+            else
+              p,
+        ],
+      );
+
   Future<void> reorderItems(String playlistId, int oldIndex, int newIndex) {
     return _update(
       (current) => [

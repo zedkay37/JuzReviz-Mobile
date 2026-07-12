@@ -35,70 +35,85 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
         ref.watch(masteryControllerProvider).valueOrNull?.memorizedSurahs ??
         const <int>{};
 
-    return Column(
-      children: [
-        const ReviewBanner(),
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: LanternSpace.md,
-            vertical: LanternSpace.sm,
-          ),
-          child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Sourate, numéro, translittération…',
+    final content = tilesAsync.when<Widget>(
+      // Anti-flicker : garde la grille pendant les recomputations.
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const SliverToBoxAdapter(
+        child: SizedBox(
+          height: 180,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (_, _) => SliverToBoxAdapter(
+        child: SizedBox(
+          height: 240,
+          child: LanternEmpty(
+            message:
+                'Impossible d’afficher la carte de mémorisation. Réessaie dans un instant.',
+            action: OutlinedButton.icon(
+              onPressed: () => ref.invalidate(atlasHeatProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
             ),
-            onChanged: (v) => setState(() => _query = v),
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
-          child: Row(
-            children: [
-              _chip(
-                'Toutes',
-                _rev == _RevFilter.all,
-                () => setState(() => _rev = _RevFilter.all),
-              ),
-              _chip(
-                'Mecquoises',
-                _rev == _RevFilter.meccan,
-                () => setState(() => _rev = _RevFilter.meccan),
-              ),
-              _chip(
-                'Médinoises',
-                _rev == _RevFilter.medinan,
-                () => setState(() => _rev = _RevFilter.medinan),
-              ),
-              const SizedBox(width: 12),
-              _chip(
-                'Mémorisées',
-                _memorizedOnly,
-                () => setState(() => _memorizedOnly = !_memorizedOnly),
-              ),
-            ],
-          ),
-        ),
-        const _HeatLegend(),
-        Expanded(
-          child: tilesAsync.when(
-            // Anti-flicker : garde la grille pendant les recomputations.
-            skipLoadingOnReload: true,
-            skipLoadingOnRefresh: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => LanternEmpty(
-              message:
-                  'Impossible d’afficher la carte de mémorisation. Réessayez dans un instant.',
-              action: OutlinedButton.icon(
-                onPressed: () => ref.invalidate(atlasHeatProvider),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Réessayer'),
-              ),
+      ),
+      data: (tiles) => _grid(_filter(tiles, memorized)),
+    );
+
+    return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        const SliverToBoxAdapter(child: ReviewBanner()),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: LanternSpace.md,
+              vertical: LanternSpace.sm,
             ),
-            data: (tiles) => _grid(_filter(tiles, memorized)),
+            child: TextField(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Sourate, numéro, translittération…',
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
           ),
         ),
+        SliverToBoxAdapter(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
+            child: Row(
+              children: [
+                _chip(
+                  'Toutes',
+                  _rev == _RevFilter.all,
+                  () => setState(() => _rev = _RevFilter.all),
+                ),
+                _chip(
+                  'Mecquoises',
+                  _rev == _RevFilter.meccan,
+                  () => setState(() => _rev = _RevFilter.meccan),
+                ),
+                _chip(
+                  'Médinoises',
+                  _rev == _RevFilter.medinan,
+                  () => setState(() => _rev = _RevFilter.medinan),
+                ),
+                const SizedBox(width: 12),
+                _chip(
+                  'Mémorisées',
+                  _memorizedOnly,
+                  () => setState(() => _memorizedOnly = !_memorizedOnly),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: _HeatLegend()),
+        content,
       ],
     );
   }
@@ -126,27 +141,36 @@ class _AtlasGridViewState extends ConsumerState<AtlasGridView> {
 
   Widget _grid(List<SurahHeatTile> tiles) {
     if (tiles.isEmpty) {
-      return const LanternEmpty(message: 'Aucune sourate ne correspond.');
+      return const SliverToBoxAdapter(
+        child: SizedBox(
+          height: 220,
+          child: LanternEmpty(message: 'Aucune sourate ne correspond.'),
+        ),
+      );
     }
-    return GridView.builder(
+    final scaleExtra = (MediaQuery.textScalerOf(context).scale(1) - 1)
+        .clamp(0, 1)
+        .toDouble();
+    return SliverPadding(
       padding: const EdgeInsets.all(LanternSpace.md),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 170,
-        mainAxisExtent: 92,
-        crossAxisSpacing: LanternSpace.sm,
-        mainAxisSpacing: LanternSpace.sm,
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 170 + 45 * scaleExtra,
+          mainAxisExtent: 92 + 38 * scaleExtra,
+          crossAxisSpacing: LanternSpace.sm,
+          mainAxisSpacing: LanternSpace.sm,
+        ),
+        delegate: SliverChildBuilderDelegate((context, i) {
+          final tile = tiles[i];
+          return HeatTile(
+            meta: tile.meta,
+            heat: tile.heat,
+            scarred: tile.scarred,
+            heroTag: 'surah-${tile.meta.number}',
+            onTap: () => context.push('/atlas/surah/${tile.meta.number}'),
+          );
+        }, childCount: tiles.length),
       ),
-      itemCount: tiles.length,
-      itemBuilder: (context, i) {
-        final tile = tiles[i];
-        return HeatTile(
-          meta: tile.meta,
-          heat: tile.heat,
-          scarred: tile.scarred,
-          heroTag: 'surah-${tile.meta.number}',
-          onTap: () => context.push('/atlas/surah/${tile.meta.number}'),
-        );
-      },
     );
   }
 

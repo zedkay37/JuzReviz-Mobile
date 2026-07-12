@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
 
 enum AppTheme { lanterne, rawda, parchemin, highContrast }
@@ -45,7 +46,7 @@ const _lanterneTokens = LanternTokens(
   accentInk: Color(0xFF000000),
   ink: Color(0xFFECE6D8),
   inkSoft: Color(0xFF9A9180),
-  inkFaint: Color(0xFF676052),
+  inkFaint: Color(0xFF877F71),
   border: Color(0xFF1F1F1F),
   ember: Color(0xFFBA7517),
   fragile: _heatFragile,
@@ -67,7 +68,7 @@ const _rawdaTokens = LanternTokens(
   accentInk: Color(0xFF000000),
   ink: Color(0xFFE9EFE6),
   inkSoft: Color(0xFF94A090),
-  inkFaint: Color(0xFF627064),
+  inkFaint: Color(0xFF7C887E),
   border: Color(0xFF1A211C),
   ember: Color(0xFFBA7517),
   fragile: _heatFragile,
@@ -84,12 +85,12 @@ const _parcheminTokens = LanternTokens(
   background: Color(0xFFF3E9D2),
   surface: Color(0xFFEADFC4),
   surfaceHigh: Color(0xFFE0D2B0),
-  accent: Color(0xFF8A5B1C),
+  accent: Color(0xFF75470F),
   accentSoft: Color(0xFFCBB17E),
   accentInk: Color(0xFFF8F1E0),
   ink: Color(0xFF2C2113),
-  inkSoft: Color(0xFF6E5C42),
-  inkFaint: Color(0xFF9A8862),
+  inkSoft: Color(0xFF655137),
+  inkFaint: Color(0xFF6A563A),
   border: Color(0xFFD8C7A0),
   ember: Color(0xFFB5662A),
   fragile: Color(0xFF9A2C2C),
@@ -147,6 +148,20 @@ ThemeData buildTheme(AppTheme theme, {Color? dynamicAccent}) {
         onPrimary: tokens.accentInk,
         onSurface: tokens.ink,
       );
+  final controlShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(14),
+  );
+  final inputBorder = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: tokens.border),
+  );
+  final overlayStyle =
+      (theme.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+          .copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: tokens.surface,
+            systemNavigationBarDividerColor: tokens.border,
+          );
 
   return ThemeData(
     useMaterial3: true,
@@ -164,10 +179,153 @@ ThemeData buildTheme(AppTheme theme, {Color? dynamicAccent}) {
       backgroundColor: tokens.background,
       foregroundColor: tokens.ink,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: false,
+      systemOverlayStyle: overlayStyle,
     ),
     iconTheme: IconThemeData(color: tokens.inkSoft),
     dividerColor: tokens.border,
+    dividerTheme: DividerThemeData(color: tokens.border, thickness: 1),
+    cardTheme: CardThemeData(
+      color: tokens.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(LanternSpace.radius),
+        side: BorderSide(color: tokens.border),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        ),
+        shape: WidgetStatePropertyAll(controlShape),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        ),
+        shape: WidgetStatePropertyAll(controlShape),
+        side: WidgetStatePropertyAll(BorderSide(color: tokens.accentSoft)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        shape: WidgetStatePropertyAll(controlShape),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: tokens.accent,
+      foregroundColor: tokens.accentInk,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: tokens.surface,
+      hintStyle: TextStyle(color: tokens.inkFaint),
+      prefixIconColor: tokens.inkSoft,
+      suffixIconColor: tokens.inkSoft,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: inputBorder,
+      enabledBorder: inputBorder,
+      focusedBorder: inputBorder.copyWith(
+        borderSide: BorderSide(color: tokens.accent, width: 1.5),
+      ),
+      errorBorder: inputBorder.copyWith(
+        borderSide: BorderSide(color: tokens.fragile),
+      ),
+      focusedErrorBorder: inputBorder.copyWith(
+        borderSide: BorderSide(color: tokens.fragile, width: 1.5),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: tokens.surface,
+      selectedColor: tokens.accent.withValues(alpha: 0.18),
+      side: BorderSide(color: tokens.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      labelStyle: TextStyle(color: tokens.inkSoft),
+      secondaryLabelStyle: TextStyle(
+        color: tokens.accent,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: tokens.surfaceHigh,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: tokens.surface,
+      modalBackgroundColor: tokens.surface,
+      surfaceTintColor: Colors.transparent,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(LanternSpace.radius),
+        ),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: tokens.surfaceHigh,
+      contentTextStyle: TextStyle(color: tokens.ink),
+      actionTextColor: tokens.accent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 72,
+      backgroundColor: tokens.surface,
+      surfaceTintColor: Colors.transparent,
+      indicatorColor: tokens.accent.withValues(alpha: 0.18),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? tokens.accent
+              : tokens.inkSoft,
+        ),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          color: states.contains(WidgetState.selected)
+              ? tokens.ink
+              : tokens.inkSoft,
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w600
+              : FontWeight.w400,
+        ),
+      ),
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: tokens.surface,
+      indicatorColor: tokens.accent.withValues(alpha: 0.18),
+      selectedIconTheme: IconThemeData(color: tokens.accent),
+      unselectedIconTheme: IconThemeData(color: tokens.inkSoft),
+      selectedLabelTextStyle: TextStyle(
+        color: tokens.ink,
+        fontWeight: FontWeight.w600,
+      ),
+      unselectedLabelTextStyle: TextStyle(color: tokens.inkSoft),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: tokens.accent),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: tokens.surfaceHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tokens.border),
+      ),
+      textStyle: TextStyle(color: tokens.ink),
+    ),
   );
 }
 

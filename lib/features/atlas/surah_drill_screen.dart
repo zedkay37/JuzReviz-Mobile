@@ -7,7 +7,6 @@ import 'package:juzreviz/core/designsystem/components/heat_widgets.dart';
 import 'package:juzreviz/core/designsystem/components/lantern_scaffold.dart';
 import 'package:juzreviz/core/designsystem/components/verse_action_sheet.dart';
 import 'package:juzreviz/core/designsystem/lantern_tokens.dart';
-import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/mastery/mastery.dart';
 import 'package:juzreviz/domain/model/selection.dart';
 
@@ -18,9 +17,10 @@ class SurahDrillScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metasAsync = ref.watch(surahMetasProvider);
-    final mastery = ref.watch(masteryControllerProvider).valueOrNull;
-    final settings =
-        ref.watch(settingsControllerProvider).valueOrNull ?? const Settings();
+    final masteryAsync = ref.watch(masteryControllerProvider);
+    final settingsAsync = ref.watch(settingsControllerProvider);
+    final mastery = masteryAsync.valueOrNull;
+    final settings = settingsAsync.valueOrNull;
     final now = ref.read(clockProvider).nowMs();
     final name = metasAsync.valueOrNull
         ?.where((m) => m.number == surah)
@@ -34,61 +34,80 @@ class SurahDrillScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Lire',
             icon: const Icon(Icons.menu_book),
-            onPressed: () => _open(context, ref),
+            onPressed: name == null ? null : () => _open(context, ref),
           ),
           IconButton(
             tooltip: 'Ajouter à une playlist',
             icon: const Icon(Icons.playlist_add),
-            onPressed: () => _addToPlaylist(context, ref),
+            onPressed: name == null ? null : () => _addToPlaylist(context, ref),
           ),
         ],
       ),
-      body: metasAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => LanternEmpty(
-          message:
-              'Impossible de charger cette sourate. Réessayez dans un instant.',
-          action: OutlinedButton.icon(
-            onPressed: () => ref.invalidate(surahMetasProvider),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Réessayer'),
-          ),
-        ),
-        data: (metas) {
-          final meta = metas.firstWhere((m) => m.number == surah);
-          return GridView.builder(
-            padding: const EdgeInsets.all(LanternSpace.md),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 56,
-              childAspectRatio: 1,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
-            ),
-            itemCount: meta.ayahCount,
-            itemBuilder: (context, i) {
-              final ayah = i + 1;
-              final key = '$surah:$ayah';
-              final f = mastery?.fragile[key];
-              final m = mastery?.mastered[key];
-              final state = verseHeatState(f, m, settings.masteryProfile, now);
-              final scarred =
-                  hasImplicitScar(f, m) ||
-                  (mastery?.scarred.contains(key) ?? false);
-              return HeatCell(
-                ayah: ayah,
-                state: state,
-                scarred: scarred,
-                onTap: () => context.push(
-                  '/read',
-                  extra: SelSurah(surah, ayah, meta.ayahCount),
+      body: mastery == null || settings == null
+          ? masteryAsync.hasError || settingsAsync.hasError
+                ? LanternEmpty(
+                    message: 'Impossible de charger ta progression.',
+                    action: OutlinedButton.icon(
+                      onPressed: () {
+                        ref
+                          ..invalidate(masteryControllerProvider)
+                          ..invalidate(settingsControllerProvider);
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Réessayer'),
+                    ),
+                  )
+                : const Center(child: CircularProgressIndicator())
+          : metasAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => LanternEmpty(
+                message:
+                    'Impossible de charger cette sourate. Réessaie dans un instant.',
+                action: OutlinedButton.icon(
+                  onPressed: () => ref.invalidate(surahMetasProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
                 ),
-                onLongPress: () =>
-                    _capture(context, ref, key, ayah, meta.ayahCount),
-              );
-            },
-          );
-        },
-      ),
+              ),
+              data: (metas) {
+                final meta = metas.firstWhere((m) => m.number == surah);
+                return GridView.builder(
+                  padding: const EdgeInsets.all(LanternSpace.md),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 56,
+                    childAspectRatio: 1,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                  ),
+                  itemCount: meta.ayahCount,
+                  itemBuilder: (context, i) {
+                    final ayah = i + 1;
+                    final key = '$surah:$ayah';
+                    final f = mastery.fragile[key];
+                    final m = mastery.mastered[key];
+                    final state = verseHeatState(
+                      f,
+                      m,
+                      settings.masteryProfile,
+                      now,
+                    );
+                    final scarred =
+                        hasImplicitScar(f, m) || mastery.scarred.contains(key);
+                    return HeatCell(
+                      ayah: ayah,
+                      state: state,
+                      scarred: scarred,
+                      onTap: () => context.push(
+                        '/read',
+                        extra: SelSurah(surah, ayah, meta.ayahCount),
+                      ),
+                      onLongPress: () =>
+                          _capture(context, ref, key, ayah, meta.ayahCount),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 

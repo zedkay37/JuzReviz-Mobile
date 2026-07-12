@@ -32,6 +32,7 @@ class InterlinearVerse extends StatefulWidget {
   final Verse verse;
   final bool wordByWord;
   final bool showTranslation;
+
   /// Langue unique des gloses et de la traduction.
   final String lang;
   final bool latinAyahNumbers;
@@ -85,14 +86,15 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     final translation = widget.verse.translation(widget.lang);
     return Semantics(
       container: true,
+      explicitChildNodes: useColumns,
       label:
           'Verset ${widget.verse.verseKey}'
-          '${translation.isNotEmpty ? '. $translation' : ''}',
+          '${widget.showTranslation && translation.isNotEmpty ? '. $translation' : ''}',
       child: GestureDetector(
         onLongPress: widget.onLongPress,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration: LanternMotion.fast,
+          duration: LanternMotion.resolve(context, LanternMotion.fast),
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
           decoration: BoxDecoration(
@@ -130,21 +132,27 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
   }
 
   /// Mot arabe suivant (règles tajwid inter-mots), null en fin de verset.
-  String? _nextArabic(int i) =>
-      i + 1 < widget.verse.words.length ? widget.verse.words[i + 1].arabic : null;
+  String? _nextArabic(int i) => i + 1 < widget.verse.words.length
+      ? widget.verse.words[i + 1].arabic
+      : null;
 
   /// Spans tajwid d'un mot : lettres colorées par règle, base sinon.
-  TextSpan _tajweedSpan(String word, String? next, TextStyle base) => TextSpan(
-        children: [
-          for (final seg in tajweedSegments(word, nextWord: next))
-            TextSpan(
-              text: seg.text,
-              style: seg.rule == null
-                  ? base
-                  : base.copyWith(color: tajweedColors[seg.rule]),
-            ),
-        ],
-      );
+  TextSpan _tajweedSpan(String word, String? next, TextStyle base) {
+    final palette = Theme.of(context).brightness == Brightness.light
+        ? tajweedColorsLight
+        : tajweedColorsDark;
+    return TextSpan(
+      children: [
+        for (final seg in tajweedSegments(word, nextWord: next))
+          TextSpan(
+            text: seg.text,
+            style: seg.rule == null
+                ? base
+                : base.copyWith(color: palette[seg.rule]),
+          ),
+      ],
+    );
+  }
 
   Widget _fullLine(LanternTokens t) => Row(
     crossAxisAlignment: CrossAxisAlignment.center,
@@ -153,22 +161,24 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
       Expanded(
         child: widget.tajweed && widget.verse.words.isNotEmpty
             ? Text.rich(
-                TextSpan(children: [
-                  for (var i = 0; i < widget.verse.words.length; i++) ...[
-                    _tajweedSpan(
-                      widget.verse.words[i].arabic,
-                      _nextArabic(i),
-                      TextStyle(
-                        fontFamily: t.arabicFamily,
-                        fontSize: widget.fontSize,
-                        height: 1.9,
-                        color: t.ink,
+                TextSpan(
+                  children: [
+                    for (var i = 0; i < widget.verse.words.length; i++) ...[
+                      _tajweedSpan(
+                        widget.verse.words[i].arabic,
+                        _nextArabic(i),
+                        TextStyle(
+                          fontFamily: t.arabicFamily,
+                          fontSize: widget.fontSize,
+                          height: 1.9,
+                          color: t.ink,
+                        ),
                       ),
-                    ),
-                    if (i < widget.verse.words.length - 1)
-                      const TextSpan(text: ' '),
+                      if (i < widget.verse.words.length - 1)
+                        const TextSpan(text: ' '),
+                    ],
                   ],
-                ]),
+                ),
                 textDirection: TextDirection.rtl,
               )
             : ArabicText(widget.verse.arabic, fontSize: widget.fontSize),
@@ -202,74 +212,115 @@ class _InterlinearVerseState extends State<InterlinearVerse> {
     ],
   );
 
-  Widget _wordCell(LanternTokens t, Word w,
-      {String? next, required bool visible}) {
+  Widget _wordCell(
+    LanternTokens t,
+    Word w, {
+    String? next,
+    required bool visible,
+  }) {
     final highlighted = widget.highlightedPosition == w.position;
     if (!visible) {
-      return GestureDetector(
-        onTap: () => setState(() => _extraRevealed++),
-        child: Container(
-          margin: const EdgeInsets.only(top: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: t.surfaceHigh,
-            borderRadius: BorderRadius.circular(8),
+      void reveal() => setState(() => _extraRevealed++);
+      return Semantics(
+        button: true,
+        label: 'Révéler le mot ${w.position}',
+        onTap: reveal,
+        child: ExcludeSemantics(
+          child: GestureDetector(
+            onTap: reveal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: Container(
+                alignment: Alignment.center,
+                margin: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: t.surfaceHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('•••', style: TextStyle(color: t.inkSoft)),
+              ),
+            ),
           ),
-          child: Text('•••', style: TextStyle(color: t.inkSoft)),
         ),
       );
     }
-    return GestureDetector(
-      onTap: widget.onWordTap == null
-          ? null
-          : () => widget.onWordTap!(w.position),
-      onLongPress: widget.onWordLongPress == null
-          ? null
-          : () => widget.onWordLongPress!(w.position),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Directionality(
-            textDirection: TextDirection.rtl,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: highlighted
-                  ? BoxDecoration(
-                      color: t.accent.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(6),
-                    )
-                  : null,
-              child: Builder(builder: (_) {
-                final style = TextStyle(
-                  fontFamily: t.arabicFamily,
-                  fontSize: w.isWaqf ? widget.fontSize * 0.6 : widget.fontSize,
-                  height: 1.34,
-                  color: highlighted ? t.accent : t.ink,
-                );
-                // Le surlignage audio prime sur la coloration tajwid.
-                return widget.tajweed && !highlighted
-                    ? Text.rich(_tajweedSpan(w.arabic, next, style))
-                    : Text(w.arabic, style: style);
-              }),
-            ),
-          ),
-          if (widget.wordByWord)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 132),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: Text(
-                  w.gloss(widget.lang),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: t.inkSoft,
-                    fontSize: 13,
-                    height: 1.28,
+    final tap = widget.onWordTap == null
+        ? null
+        : () => widget.onWordTap!(w.position);
+    final longPress = widget.onWordLongPress == null
+        ? null
+        : () => widget.onWordLongPress!(w.position);
+    return Semantics(
+      button: tap != null || longPress != null,
+      label: [
+        w.arabic,
+        if (widget.wordByWord) w.gloss(widget.lang),
+      ].where((part) => part.isNotEmpty).join(', '),
+      hint: longPress == null ? null : 'Appui long pour écouter ce mot',
+      onTap: tap,
+      onLongPress: longPress,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: tap,
+          onLongPress: longPress,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: highlighted
+                        ? BoxDecoration(
+                            color: t.accent.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                          )
+                        : null,
+                    child: Builder(
+                      builder: (_) {
+                        final style = TextStyle(
+                          fontFamily: t.arabicFamily,
+                          fontSize: w.isWaqf
+                              ? widget.fontSize * 0.6
+                              : widget.fontSize,
+                          height: 1.34,
+                          color: highlighted ? t.accent : t.ink,
+                        );
+                        // Le surlignage audio prime sur la coloration tajwid.
+                        return widget.tajweed && !highlighted
+                            ? Text.rich(_tajweedSpan(w.arabic, next, style))
+                            : Text(w.arabic, style: style);
+                      },
+                    ),
                   ),
                 ),
-              ),
+                if (widget.wordByWord)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 132),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(
+                        w.gloss(widget.lang),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: t.inkSoft,
+                          fontSize: 13,
+                          height: 1.28,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

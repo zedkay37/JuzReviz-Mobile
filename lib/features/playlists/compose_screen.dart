@@ -37,6 +37,33 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     for (final j in _juz.toList()..sort()) SelJuz(j),
   ];
 
+  Future<bool> _confirmTypeSwitch({required bool toSurahs}) async {
+    final hasOtherSelection = toSurahs ? _juz.isNotEmpty : _surahs.isNotEmpty;
+    if (!hasOtherSelection) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Remplacer la sélection ?'),
+            content: Text(
+              toSurahs
+                  ? 'Choisir une sourate remplacera les juz déjà sélectionnés.'
+                  : 'Choisir un juz remplacera les sourates déjà sélectionnées.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Remplacer'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   List<String> _allKeys(List<SurahMeta> metas) {
     final keys = <String>[];
     for (final n in _surahs.keys.toList()..sort()) {
@@ -119,6 +146,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     return DefaultTabController(
       length: 2,
       child: LanternScaffold(
+        contentMaxWidth: 840,
         appBar: AppBar(
           title: Text(
             _count == 0
@@ -140,7 +168,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) => LanternEmpty(
             message:
-                'Impossible de charger les sourates. Réessayez avant de créer votre sélection.',
+                'Impossible de charger les sourates. Réessaie avant de créer ta sélection.',
             action: OutlinedButton.icon(
               onPressed: () => ref.invalidate(surahMetasProvider),
               icon: const Icon(Icons.refresh),
@@ -190,11 +218,15 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
     final on = range != null;
     final isPartial = on && (range.$1 != 1 || range.$2 != m.ayahCount);
     return ListTile(
-      onTap: () => setState(() {
-        HapticFeedback.selectionClick();
-        _juz.clear(); // sélection non-cumulative : sourates OU juz
-        on ? _surahs.remove(m.number) : _surahs[m.number] = (1, m.ayahCount);
-      }),
+      selected: on,
+      onTap: () async {
+        if (!await _confirmTypeSwitch(toSurahs: true) || !mounted) return;
+        setState(() {
+          HapticFeedback.selectionClick();
+          _juz.clear(); // sélection non-cumulative : sourates OU juz
+          on ? _surahs.remove(m.number) : _surahs[m.number] = (1, m.ayahCount);
+        });
+      },
       onLongPress: () => _pickRange(m),
       leading: _badge(t, '${m.number}', on),
       title: Text(m.transliteration, style: TextStyle(color: t.ink)),
@@ -217,6 +249,7 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   }
 
   Future<void> _pickRange(SurahMeta m) async {
+    if (!await _confirmTypeSwitch(toSurahs: true) || !mounted) return;
     final current = _surahs[m.number];
     final picked = await showLanternSheet<(int, int)>(
       context,
@@ -237,11 +270,15 @@ class _ComposeScreenState extends ConsumerState<ComposeScreen> {
   Widget _juzTile(LanternTokens t, int juz) {
     final on = _juz.contains(juz);
     return ListTile(
-      onTap: () => setState(() {
-        HapticFeedback.selectionClick();
-        _surahs.clear(); // sélection non-cumulative : sourates OU juz
-        on ? _juz.remove(juz) : _juz.add(juz);
-      }),
+      selected: on,
+      onTap: () async {
+        if (!await _confirmTypeSwitch(toSurahs: false) || !mounted) return;
+        setState(() {
+          HapticFeedback.selectionClick();
+          _surahs.clear(); // sélection non-cumulative : sourates OU juz
+          on ? _juz.remove(juz) : _juz.add(juz);
+        });
+      },
       leading: _badge(t, '$juz', on),
       title: Text('Juz $juz', style: TextStyle(color: t.ink)),
     );
@@ -283,7 +320,7 @@ class _QuickActions extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (meta != null)
+          if (s.hasReadingProgress && meta != null)
             Material(
               color: t.surface,
               borderRadius: BorderRadius.circular(LanternSpace.radius),

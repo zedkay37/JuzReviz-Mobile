@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:juzreviz/data/mushaf/mushaf_page.dart';
+import 'package:juzreviz/features/reader/mushaf_view.dart';
 
 void main() {
   test('parseMushafPage lit en-tête, basmala et ligne d’ayât', () {
@@ -34,5 +35,13 @@ void main() {
     expect(page.single.line, 0);
     expect(page.single.words, isEmpty);
     expect(page.single.centered, isFalse);
+  });
+
+  test('le libellé accessible du Mushaf contient le texte coranique', () {
+    expect(
+      mushafVerseSemanticsLabel('1:1', 'بِسْمِ اللَّهِ'),
+      'Verset 1, 1. بِسْمِ اللَّهِ',
+    );
+    expect(mushafVerseSemanticsLabel('1:1', null), 'Verset 1, 1');
   });
 }

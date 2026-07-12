@@ -16,6 +16,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
     final playlists = playlistsAsync.valueOrNull;
     if (playlists == null) {
       return LanternScaffold(
+        contentMaxWidth: 760,
         appBar: AppBar(title: const Text('Playlist')),
         body: playlistsAsync.hasError
             ? LanternEmpty(
@@ -31,11 +32,21 @@ class PlaylistDetailScreen extends ConsumerWidget {
     }
     final p = playlists.where((x) => x.id == playlistId).firstOrNull;
     if (p == null) {
-      return const LanternScaffold(
-        body: LanternEmpty(message: 'Playlist introuvable.'),
+      return LanternScaffold(
+        contentMaxWidth: 760,
+        appBar: AppBar(title: const Text('Playlist')),
+        body: LanternEmpty(
+          message: 'Cette playlist n’existe plus.',
+          action: FilledButton.icon(
+            onPressed: () => context.go('/playlists'),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Revenir aux playlists'),
+          ),
+        ),
       );
     }
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(
         title: Text(p.name),
         actions: [
@@ -71,16 +82,41 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   title: Text(item.label),
                   subtitle: Text(item.selection.label),
                   trailing: IconButton(
+                    tooltip: 'Retirer ${item.label}',
                     icon: const Icon(Icons.close),
-                    onPressed: () => ref
-                        .read(playlistsControllerProvider.notifier)
-                        .removeItem(p.id, item.id),
+                    onPressed: () => _removeWithUndo(context, ref, p, item, i),
                   ),
                   onTap: () => context.push('/read', extra: item.selection),
                 );
               },
             ),
     );
+  }
+
+  Future<void> _removeWithUndo(
+    BuildContext context,
+    WidgetRef ref,
+    Playlist playlist,
+    PlaylistItem item,
+    int index,
+  ) async {
+    final controller = ref.read(playlistsControllerProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    await controller.removeItem(playlist.id, item.id);
+    if (!context.mounted) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('« ${item.label} » retiré de la playlist.'),
+          action: SnackBarAction(
+            label: 'Annuler',
+            onPressed: () {
+              controller.restoreItem(playlist.id, item, index);
+            },
+          ),
+        ),
+      );
   }
 
   Future<void> _playAll(BuildContext context, WidgetRef ref, Playlist p) async {

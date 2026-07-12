@@ -118,6 +118,7 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
             ),
             const SizedBox(width: LanternSpace.sm),
             IconButton(
+              tooltip: 'Créer la playlist',
               onPressed: _creating ? null : _create,
               icon: Icon(Icons.add_circle, color: t.accent),
             ),
@@ -141,6 +142,7 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
                 final p = playlists[i];
                 final inIt = playlistHasPassage(p, widget.selection);
                 return ListTile(
+                  selected: inIt,
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     inIt ? Icons.check_circle : Icons.circle_outlined,
@@ -159,7 +161,6 @@ class _AddToPlaylistSheetState extends ConsumerState<AddToPlaylistSheet> {
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        duration: const Duration(milliseconds: 900),
                         content: Text(
                           inIt ? 'Retiré de ${p.name}' : 'Ajouté à ${p.name}',
                         ),

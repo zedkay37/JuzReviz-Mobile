@@ -9,6 +9,7 @@ void main() {
     expect(s.readerWordByWord, isTrue);
     expect(s.masteryProfile, MasteryProfile.serenity);
     expect(s.veilMode, VeilMode.full);
+    expect(s.hasReadingProgress, isFalse);
   });
 
   test('clé inconnue ignorée, clés valides conservées', () {
@@ -42,6 +43,8 @@ void main() {
       contentLang: 'en',
       theme: 'rawda',
       latinAyahNumbers: true,
+      currentVerseKey: '2:42',
+      hasReadingProgress: true,
     );
     final back = Settings.fromJsonSanitized(original.toJson());
     expect(back.reciter, original.reciter);
@@ -50,12 +53,19 @@ void main() {
     expect(back.contentLang, 'en');
     expect(back.theme, 'rawda');
     expect(back.latinAyahNumbers, isTrue);
+    expect(back.currentVerseKey, '2:42');
+    expect(back.hasReadingProgress, isTrue);
   });
 
   test('migration des anciens layouts mushaf', () {
     expect(readerLayoutFromString('mushafTajweed'), ReaderLayout.mushaf);
     expect(readerLayoutFromString('mushafMadni'), ReaderLayout.mushaf);
     expect(readerLayoutFromString('inconnu'), ReaderLayout.flexible);
+  });
+
+  test('une ancienne position non initiale restaure la reprise', () {
+    final migrated = Settings.fromJsonSanitized({'currentVerseKey': '36:12'});
+    expect(migrated.hasReadingProgress, isTrue);
   });
 
   test('valeurs persistantes invalides reviennent a des valeurs sures', () {

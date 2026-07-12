@@ -26,6 +26,7 @@ Widget _pendingSettingsPage(
   VoidCallback? onRetry,
 }) {
   return LanternScaffold(
+    contentMaxWidth: 760,
     appBar: AppBar(title: Text(title)),
     body: hasError
         ? LanternEmpty(
@@ -59,6 +60,7 @@ class RecitationPage extends ConsumerWidget {
     }
     final t = context.lantern;
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Récitation')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: LanternSpace.lg),
@@ -68,6 +70,7 @@ class RecitationPage extends ConsumerWidget {
             children: [
               for (final r in reciters)
                 ListTile(
+                  selected: s.reciter == r.id,
                   onTap: () {
                     HapticFeedback.selectionClick();
                     _edit(ref, (p) => p.copyWith(reciter: r.id));
@@ -129,6 +132,7 @@ class ReadingPage extends ConsumerWidget {
     }
     const langs = [('fr', 'Français'), ('en', 'Anglais')];
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Lecture & affichage')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: LanternSpace.lg),
@@ -244,6 +248,7 @@ class RevisionPage extends ConsumerWidget {
     }
     final memorizedCount = mastery.memorizedSurahs.length;
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Révision')),
       body: ListView(
         padding: const EdgeInsets.all(LanternSpace.md),
@@ -405,6 +410,7 @@ class AppearancePage extends ConsumerWidget {
     }
     final current = appThemeFromString(s.theme);
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Apparence')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: LanternSpace.lg),
@@ -415,8 +421,10 @@ class AppearancePage extends ConsumerWidget {
               horizontal: LanternSpace.md,
               vertical: LanternSpace.sm,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: LanternSpace.sm,
+              runSpacing: LanternSpace.md,
               children: [
                 for (final theme in AppTheme.values)
                   ThemeSwatch(
@@ -452,6 +460,7 @@ class DataPage extends ConsumerWidget {
         masteryAsync.hasError ||
         playlistsAsync.hasError;
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Données')),
       body: ListView(
         padding: const EdgeInsets.only(top: LanternSpace.md),
@@ -767,6 +776,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('À propos')),
       body: ListView(
         padding: const EdgeInsets.all(LanternSpace.md),

@@ -18,13 +18,16 @@ class SettingSection extends StatelessWidget {
         LanternSpace.lg,
         LanternSpace.sm,
       ),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: t.accent,
-          fontSize: 11,
-          letterSpacing: 1.4,
-          fontWeight: FontWeight.w700,
+      child: Semantics(
+        header: true,
+        child: Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            color: t.accent,
+            fontSize: 11,
+            letterSpacing: 1.4,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -63,7 +66,7 @@ class SettingGroup extends StatelessWidget {
   }
 }
 
-/// Carte de navigation (hub Profil → sous-écran).
+/// Carte de navigation (hub Réglages → sous-écran).
 class NavCard extends StatelessWidget {
   const NavCard({
     super.key,
@@ -266,9 +269,15 @@ class _Pill extends StatelessWidget {
         child: GestureDetector(
           onTap: enabled ? onTap : null,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            constraints: BoxConstraints(
+              minWidth: 48,
+              minHeight: 48,
+              maxWidth: MediaQuery.sizeOf(context).width - 64,
+            ),
             child: AnimatedContainer(
-              duration: LanternMotion.fast,
+              duration: MediaQuery.maybeOf(context)?.disableAnimations ?? false
+                  ? Duration.zero
+                  : LanternMotion.fast,
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
@@ -283,6 +292,7 @@ class _Pill extends StatelessWidget {
               ),
               child: Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: !enabled
                       ? t.inkFaint
@@ -330,9 +340,15 @@ class SliderRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(color: t.ink, fontSize: 15)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(color: t.ink, fontSize: 15),
+                ),
+              ),
+              const SizedBox(width: LanternSpace.sm),
               Text(
                 valueLabel,
                 style: TextStyle(
@@ -397,7 +413,9 @@ class ChoiceCard extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 48),
             child: AnimatedContainer(
-              duration: LanternMotion.fast,
+              duration: MediaQuery.maybeOf(context)?.disableAnimations ?? false
+                  ? Duration.zero
+                  : LanternMotion.fast,
               padding: const EdgeInsets.all(LanternSpace.md),
               decoration: BoxDecoration(
                 color: selected ? t.accent.withValues(alpha: 0.10) : t.surface,
@@ -489,7 +507,10 @@ class ThemeSwatch extends StatelessWidget {
             child: Column(
               children: [
                 AnimatedContainer(
-                  duration: LanternMotion.fast,
+                  duration:
+                      MediaQuery.maybeOf(context)?.disableAnimations ?? false
+                      ? Duration.zero
+                      : LanternMotion.fast,
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(

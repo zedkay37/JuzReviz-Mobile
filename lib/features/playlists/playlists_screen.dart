@@ -17,6 +17,7 @@ class PlaylistsScreen extends ConsumerWidget {
     final playlists = playlistsAsync.valueOrNull;
     if (playlists == null) {
       return LanternScaffold(
+        contentMaxWidth: 760,
         appBar: AppBar(title: const Text('Playlists')),
         body: playlistsAsync.hasError
             ? LanternEmpty(
@@ -32,6 +33,7 @@ class PlaylistsScreen extends ConsumerWidget {
     }
     final t = context.lantern;
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Playlists')),
       floatingActionButton: FloatingActionButton(
         backgroundColor: t.accent,
@@ -95,14 +97,30 @@ class PlaylistsScreen extends ConsumerWidget {
                           side: BorderSide(color: t.border),
                         ),
                         icon: Icon(Icons.more_vert, color: t.inkSoft),
-                        onSelected: (v) {
+                        onSelected: (v) async {
                           if (v == 'rename') {
-                            _renameDialog(context, ref, p.id, p.name);
+                            await _renameDialog(context, ref, p.id, p.name);
+                            return;
                           }
                           if (v == 'delete') {
-                            ref
+                            final confirmed = await confirmDestructiveAction(
+                              context,
+                              title: 'Supprimer « ${p.name} » ?',
+                              message:
+                                  'Elle contient '
+                                  '${passageCount(p.items.length).toLowerCase()}. '
+                                  'Tes données de révision ne seront pas modifiées.',
+                            );
+                            if (!confirmed || !context.mounted) return;
+                            await ref
                                 .read(playlistsControllerProvider.notifier)
                                 .delete(p.id);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Playlist supprimée.'),
+                              ),
+                            );
                           }
                         },
                         itemBuilder: (_) => const [

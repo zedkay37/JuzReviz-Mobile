@@ -10,7 +10,7 @@ import 'package:juzreviz/data/settings/settings.dart';
 import 'package:juzreviz/domain/model/enums.dart';
 import 'package:juzreviz/features/settings/setting_widgets.dart';
 
-/// Hub « Profil » : accès aux réglages regroupés par intention.
+/// Hub « Réglages » : options regroupées par intention.
 /// (Régularité et file de révision vivent désormais dans l'onglet Aujourd'hui.)
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -21,10 +21,11 @@ class SettingsScreen extends ConsumerWidget {
     final s = settingsAsync.valueOrNull;
     if (s == null) {
       return LanternScaffold(
-        appBar: AppBar(title: const Text('Profil')),
+        contentMaxWidth: 760,
+        appBar: AppBar(title: const Text('Réglages')),
         body: settingsAsync.hasError
             ? LanternEmpty(
-                message: 'Impossible de charger le profil.',
+                message: 'Impossible de charger les réglages.',
                 action: TextButton.icon(
                   onPressed: () => ref.invalidate(settingsControllerProvider),
                   icon: const Icon(Icons.refresh),
@@ -35,7 +36,8 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
     return LanternScaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      contentMaxWidth: 760,
+      appBar: AppBar(title: const Text('Réglages')),
       body: ListView(
         padding: const EdgeInsets.only(
           bottom: LanternSpace.lg,

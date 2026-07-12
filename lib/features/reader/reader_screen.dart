@@ -148,7 +148,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _resumeDebounce = Timer(const Duration(milliseconds: 900), () {
       ref
           .read(settingsControllerProvider.notifier)
-          .edit((p) => p.copyWith(currentVerseKey: key));
+          .edit(
+            (p) => p.copyWith(currentVerseKey: key, hasReadingProgress: true),
+          );
     });
   }
 
@@ -393,7 +395,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (!mounted) return;
     ref
         .read(settingsControllerProvider.notifier)
-        .edit((p) => p.copyWith(currentVerseKey: '$number:1'));
+        .edit(
+          (p) => p.copyWith(
+            currentVerseKey: '$number:1',
+            hasReadingProgress: true,
+          ),
+        );
     setState(() {
       _override = SelSurah(number, 1, count);
       _verses = const [];
@@ -609,7 +616,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (_, _) => LanternEmpty(
                   message:
-                      'Impossible de charger les versets. Réessayez dans un instant.',
+                      'Impossible de charger les versets. Réessaie dans un instant.',
                   action: OutlinedButton.icon(
                     onPressed: () =>
                         ref.invalidate(readerVersesProvider(_selection)),
@@ -639,7 +646,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           : verses.first.verseKey,
                       onVerseChanged: (key) => ref
                           .read(settingsControllerProvider.notifier)
-                          .edit((p) => p.copyWith(currentVerseKey: key)),
+                          .edit(
+                            (p) => p.copyWith(
+                              currentVerseKey: key,
+                              hasReadingProgress: true,
+                            ),
+                          ),
                       onVerseLongPress: (k) =>
                           showVerseActions(context, verseKey: k),
                     );
@@ -910,7 +922,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final s2 = int.parse(endKey.split(':')[0]);
     final a2 = int.parse(endKey.split(':')[1]);
     setState(() => _rangeStart = null);
-    if (s1 != s2) return; // plage inter-sourate non gérée
+    if (s1 != s2) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Choisis le verset de fin dans la même sourate.'),
+          ),
+        );
+      }
+      return;
+    }
     final from = a1 <= a2 ? a1 : a2;
     final to = a1 <= a2 ? a2 : a1;
     final startKey = '$s1:$from';
@@ -1207,32 +1228,36 @@ class _BatteryTipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        LanternSpace.md,
-        LanternSpace.sm,
-        LanternSpace.md,
-        0,
-      ),
-      padding: const EdgeInsets.fromLTRB(LanternSpace.md, 10, 6, 10),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(LanternSpace.radius),
-        border: Border.all(color: t.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.battery_saver, color: t.accent, size: 20),
-          const SizedBox(width: LanternSpace.sm),
-          Expanded(
-            child: Text(
-              'L’audio se coupe en arrière-plan ? Autorise JuzReviz dans les '
-              'réglages batterie (« Aucune restriction »).',
-              style: TextStyle(color: t.inkSoft, fontSize: 12.5, height: 1.3),
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          LanternSpace.md,
+          LanternSpace.sm,
+          LanternSpace.md,
+          0,
+        ),
+        padding: const EdgeInsets.fromLTRB(LanternSpace.md, 10, 6, 10),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(LanternSpace.radius),
+          border: Border.all(color: t.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.battery_saver, color: t.accent, size: 20),
+            const SizedBox(width: LanternSpace.sm),
+            Expanded(
+              child: Text(
+                'L’audio se coupe en arrière-plan ? Autorise JuzReviz dans les '
+                'réglages batterie (« Aucune restriction »).',
+                style: TextStyle(color: t.inkSoft, fontSize: 12.5, height: 1.3),
+              ),
             ),
-          ),
-          TextButton(onPressed: onDismiss, child: const Text('OK')),
-        ],
+            TextButton(onPressed: onDismiss, child: const Text('OK')),
+          ],
+        ),
       ),
     );
   }
@@ -1252,20 +1277,33 @@ class _AyahPositionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Material(
-      color: t.surfaceHigh,
-      shape: const StadiumBorder(),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          child: Text(
-            '$ayah / $total',
-            style: TextStyle(
-              color: t.ink,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+    return Semantics(
+      button: true,
+      label: 'Âyah $ayah sur $total',
+      hint: 'Aller à une autre âyah',
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: t.surfaceHigh,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    '$ayah / $total',
+                    style: TextStyle(
+                      color: t.ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -1449,34 +1487,38 @@ class _SelectionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        LanternSpace.md,
-        LanternSpace.sm,
-        LanternSpace.md,
-        0,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: LanternSpace.md,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(LanternSpace.radius),
-        border: Border.all(color: t.accent),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.touch_app, color: t.accent, size: 20),
-          const SizedBox(width: LanternSpace.sm),
-          Expanded(
-            child: Text(
-              'Tapez le verset de fin',
-              style: TextStyle(color: t.ink, fontSize: 14),
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          LanternSpace.md,
+          LanternSpace.sm,
+          LanternSpace.md,
+          0,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: LanternSpace.md,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(LanternSpace.radius),
+          border: Border.all(color: t.accent),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.touch_app, color: t.accent, size: 20),
+            const SizedBox(width: LanternSpace.sm),
+            Expanded(
+              child: Text(
+                'Choisis le verset de fin dans la même sourate',
+                style: TextStyle(color: t.ink, fontSize: 14),
+              ),
             ),
-          ),
-          TextButton(onPressed: onCancel, child: const Text('Annuler')),
-        ],
+            TextButton(onPressed: onCancel, child: const Text('Annuler')),
+          ],
+        ),
       ),
     );
   }

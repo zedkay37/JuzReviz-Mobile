@@ -31,6 +31,7 @@ class HeatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.lantern;
     final dominantColor = t.heat(heat.dominant);
+    final stateLabel = heatLabelFr(heat.dominant);
     final meccan = meta.revelation == Revelation.meccan;
     final tile = Container(
       decoration: BoxDecoration(
@@ -107,8 +108,10 @@ class HeatTile extends StatelessWidget {
             ),
           ),
           Text(
-            showHeat && heat.needsReview > 0
-                ? '${heat.needsReview} à revoir'
+            showHeat
+                ? heat.needsReview > 0
+                      ? '$stateLabel · ${heat.needsReview} à revoir'
+                      : '$stateLabel · à jour'
                 : '${meccan ? 'Mecquoise' : 'Médinoise'} · ${meta.ayahCount} v.',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -123,10 +126,28 @@ class HeatTile extends StatelessWidget {
             child: Material(type: MaterialType.transparency, child: tile),
           )
         : tile;
-    return InkWell(
+    final status = showHeat
+        ? [
+            stateLabel,
+            if (heat.needsReview > 0) '${heat.needsReview} à revoir',
+            if (heat.hasFragile) 'versets fragiles',
+            if (scarred) 'cicatrice',
+          ].join(', ')
+        : '${meccan ? 'Mecquoise' : 'Médinoise'}, ${meta.ayahCount} versets';
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      enabled: onTap != null,
+      label: 'Sourate ${meta.number}, ${meta.transliteration}',
+      value: status,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(LanternSpace.radius),
-      child: wrapped,
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(LanternSpace.radius),
+          child: wrapped,
+        ),
+      ),
     );
   }
 }

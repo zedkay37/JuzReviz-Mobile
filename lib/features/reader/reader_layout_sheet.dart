@@ -28,7 +28,7 @@ class ReaderLayoutSheet extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Choisissez votre disposition',
+            'Choisis ta disposition',
             style: TextStyle(
               color: t.ink,
               fontSize: 17,
@@ -197,32 +197,26 @@ class _LayoutCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                layout.label,
-                                style: TextStyle(
-                                  color: dim ? t.inkSoft : t.ink,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                        Text(
+                          layout.label,
+                          style: TextStyle(
+                            color: dim ? t.inkSoft : t.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (statusLabel != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              statusLabel!,
+                              style: TextStyle(
+                                color: t.accent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            if (statusLabel != null)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 6),
-                                child: Text(
-                                  '· $statusLabel',
-                                  style: TextStyle(
-                                    color: t.accent,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                          ),
                         const SizedBox(height: 2),
                         Text(
                           layout.description,

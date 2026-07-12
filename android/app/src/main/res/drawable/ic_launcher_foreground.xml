@@ -7,8 +7,7 @@
     <!-- Croissant doré (Noir & Or) -->
     <path
         android:fillColor="#D4A437"
-        android:fillType="evenOdd"
-        android:pathData="M24,54 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0 Z M40,46 a27,27 0 1,0 54,0 a27,27 0 1,0 -54,0 Z" />
+        android:pathData="M51.165,24.131 A30,30 0 1,0 79.383,69.997 A27,27 0 0,1 51.165,24.131 Z" />
     <!-- Étincelle -->
     <path
         android:fillColor="#E8C56A"

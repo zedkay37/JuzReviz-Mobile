@@ -29,12 +29,13 @@ class ProgramScreen extends ConsumerWidget {
         mastery.memorizedSurahs.isEmpty;
 
     return LanternScaffold(
+      contentMaxWidth: 760,
       appBar: AppBar(title: const Text('Aujourd’hui')),
       body: queueAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => LanternEmpty(
           message:
-              'Impossible de charger le programme du jour. Réessayez dans un instant.',
+              'Impossible de charger le programme du jour. Réessaie dans un instant.',
           action: OutlinedButton.icon(
             onPressed: () => ref.invalidate(decayQueueProvider),
             icon: const Icon(Icons.refresh),
@@ -43,64 +44,90 @@ class ProgramScreen extends ConsumerWidget {
         ),
         data: (queue) {
           if (blank) return const _ColdStart();
-          return Column(
-            children: [
-              _Header(streak: streak, count: queue.length),
-              const _HotZones(),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LanternSpace.md,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _Header(streak: streak, count: queue.length),
+              ),
+              const SliverToBoxAdapter(child: _HotZones()),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: LanternSpace.md,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final stack =
+                          constraints.maxWidth < 420 ||
+                          MediaQuery.textScalerOf(context).scale(1) > 1.35;
+                      final quick = FilledButton.icon(
                         onPressed: queue.isEmpty
                             ? null
                             : () => _start(context, queue, 15),
                         icon: const Icon(Icons.timer_outlined),
                         label: const Text('Session rapide'),
-                      ),
-                    ),
-                    const SizedBox(width: LanternSpace.sm),
-                    Expanded(
-                      child: OutlinedButton.icon(
+                      );
+                      final all = OutlinedButton.icon(
                         onPressed: queue.isEmpty
                             ? null
                             : () => _start(context, queue, queue.length),
                         icon: const Icon(Icons.playlist_play),
                         label: const Text('Tout réviser'),
-                      ),
-                    ),
-                  ],
+                      );
+                      if (stack) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            quick,
+                            const SizedBox(height: LanternSpace.sm),
+                            all,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: quick),
+                          const SizedBox(width: LanternSpace.sm),
+                          Expanded(child: all),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
-              const SizedBox(height: LanternSpace.sm),
-              Expanded(
-                child: queue.isEmpty
-                    ? const LanternEmpty(
-                        message:
-                            'Rien ne s’éteint aujourd’hui. Reviens quand tu veux — '
-                            'tes versets sont au chaud.',
-                        icon: Icons.spa_outlined,
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(LanternSpace.md),
-                        itemCount: queue.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: LanternSpace.sm),
-                        itemBuilder: (context, i) {
-                          final e = queue[i];
-                          return ProgramCard(
-                            verseKey: e.verseKey,
-                            title: _title(metas, e.verseKey),
-                            state: e.state,
-                            count: e.count,
-                            onTap: () => _start(context, [e], 1),
-                          );
-                        },
-                      ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: LanternSpace.sm),
               ),
+              if (queue.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: LanternEmpty(
+                    message:
+                        'Rien ne s’éteint aujourd’hui. Reviens quand tu veux — '
+                        'tes versets sont au chaud.',
+                    icon: Icons.spa_outlined,
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.all(LanternSpace.md),
+                  sliver: SliverList.builder(
+                    itemCount: queue.length * 2 - 1,
+                    itemBuilder: (context, i) {
+                      if (i.isOdd) {
+                        return const SizedBox(height: LanternSpace.sm);
+                      }
+                      final e = queue[i ~/ 2];
+                      return ProgramCard(
+                        verseKey: e.verseKey,
+                        title: _title(metas, e.verseKey),
+                        state: e.state,
+                        count: e.count,
+                        onTap: () => _start(context, [e], 1),
+                      );
+                    },
+                  ),
+                ),
             ],
           );
         },
@@ -128,8 +155,11 @@ class _HotZones extends ConsumerWidget {
     final t = context.lantern;
     final zones = ref.watch(hotZonesProvider).valueOrNull ?? const [];
     if (zones.isEmpty) return const SizedBox.shrink();
+    final scaleExtra = (MediaQuery.textScalerOf(context).scale(1) - 1)
+        .clamp(0, 1)
+        .toDouble();
     return SizedBox(
-      height: 40,
+      height: 40 + 20 * scaleExtra,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: LanternSpace.md),
@@ -174,26 +204,36 @@ class _Header extends StatelessWidget {
     final t = context.lantern;
     return Padding(
       padding: const EdgeInsets.all(LanternSpace.md),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: LanternSpace.md,
+        runSpacing: LanternSpace.xs,
         children: [
-          // Un « 0 j » décourage : le streak n'apparaît qu'à partir de 1.
-          if (streak > 0) ...[
-            Icon(Icons.local_fire_department, color: t.accent),
-            const SizedBox(width: 6),
-            Text(
-              '$streak j',
-              style: TextStyle(
-                color: t.ink,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'de régularité',
-              style: TextStyle(color: t.inkSoft, fontSize: 13),
-            ),
-          ] else
+          if (streak > 0)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.local_fire_department, color: t.accent),
+                const SizedBox(width: 6),
+                Text(
+                  '$streak j',
+                  style: TextStyle(
+                    color: t.ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    'de régularité',
+                    style: TextStyle(color: t.inkSoft, fontSize: 13),
+                  ),
+                ),
+              ],
+            )
+          else
             Text(
               'Ta révision du jour',
               style: TextStyle(
@@ -202,7 +242,6 @@ class _Header extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-          const Spacer(),
           Text(
             count == 0 ? 'À jour' : '$count à revoir',
             style: TextStyle(color: t.inkSoft, fontSize: 13),
@@ -220,42 +259,51 @@ class _ColdStart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.lantern;
-    return Center(
-      child: Padding(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
         padding: const EdgeInsets.all(LanternSpace.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.auto_awesome, color: t.accent, size: 44),
-            const SizedBox(height: 16),
-            Text(
-              'Commence avec ce que tu sais',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: t.ink,
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-              ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (constraints.maxHeight - LanternSpace.lg * 2)
+                .clamp(0, double.infinity)
+                .toDouble(),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, color: t.accent, size: 44),
+                const SizedBox(height: 16),
+                Text(
+                  'Commence avec ce que tu sais',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: t.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Indique les sourates que tu connais déjà par cœur : '
+                  'ton programme de révision démarre immédiatement.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: t.inkSoft, fontSize: 14, height: 1.4),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => showKnownSurahsSheet(context),
+                  icon: const Icon(Icons.checklist),
+                  label: const Text('Je connais déjà des sourates'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => context.go('/coran'),
+                  child: const Text('Je pars de zéro — ouvrir le Coran'),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Indique les sourates que tu connais déjà par cœur : '
-              'ton programme de révision démarre immédiatement.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: t.inkSoft, fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => showKnownSurahsSheet(context),
-              icon: const Icon(Icons.checklist),
-              label: const Text('Je connais déjà des sourates'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => context.go('/coran'),
-              child: const Text('Je pars de zéro — ouvrir le Coran'),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -31,7 +31,7 @@ class NotificationService {
     } catch (_) {
       // Fallback : UTC (déjà la valeur par défaut).
     }
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('ic_stat_juzreviz');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
